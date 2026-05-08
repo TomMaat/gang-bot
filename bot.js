@@ -29,13 +29,14 @@ const ROLE_CHANGE_DEBOUNCE_MS = 3000;
 const WARN_CHANNEL_ID = "1475784747392172178";
 const PROMO_CHANNEL_ID = "1478540121555996836";
 const DEMOTE_CHANNEL_ID = "1502446924702290053";
+const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
 
 // Role IDs for admin commands
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
 
-// Ranks with correct numbering: 10 = highest (Jefe), 1 = lowest (Recruta)
+// Ranks from highest to lowest
 const ranks = [
   { name: "👑 Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541", level: 10 },
   { name: "🧠 Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999", level: 9 },
@@ -88,6 +89,15 @@ function getRankNameByLevel(level) {
   return rank ? rank.name : null;
 }
 
+function getCurrentRankLevel(member) {
+  for (const rank of sortedRanks) {
+    if (member.roles.cache.has(rank.roleId)) {
+      return rank.level;
+    }
+  }
+  return 0; // No gang role found
+}
+
 async function removeAllGangRoles(member) {
   const gangRoleIds = ranks.map(r => r.roleId);
   const rolesToRemove = member.roles.cache.filter(role => gangRoleIds.includes(role.id));
@@ -115,6 +125,27 @@ async function sendActionEmbed(title, user, reason, channelId, actionType = "pro
   await channel.send({ embeds: [embed] });
 }
 
+async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
+  const channel = await client.channels.fetch(AFWEZIGHEID_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) {
+    console.error(`Cannot send embed: Channel ${AFWEZIGHEID_CHANNEL_ID} not found`);
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("📋 AFWEZIGHEID MK-13")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Vanaf", value: fromDate, inline: true },
+      { name: "📅 Tot", value: tilDate, inline: true },
+      { name: "📅 Gemeld op", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0x00A5FF);
+
+  await channel.send({ embeds: [embed] });
+}
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
@@ -131,7 +162,6 @@ async function buildEmbed() {
   let body = "";
   const uniqueMembers = new Set();
 
-  // Show ranks from highest to lowest
   for (const rank of sortedRanks) {
     const role = guild.roles.cache.get(rank.roleId);
     if (!role) {
@@ -227,13 +257,13 @@ async function registerCommands() {
     
     new SlashCommandBuilder()
       .setName("promo")
-      .setDescription("Promoveer een lid naar een hogere rang")
+      .setDescription("Promoveer een lid (1=+1 rank, 2=+2 ranks, etc.)")
       .addIntegerOption(option =>
-        option.setName("number")
-          .setDescription("Rang nummer: 10=Jefe, 9=Sub Jefe, 8=Encargado, 7=Sicario, 6=Paro, 5=Activo, 4=Chequeos, 3=Colaborador, 2=Soldado, 1=Recruta")
+        option.setName("steps")
+          .setDescription("Aantal stappen omhoog (1-9)")
           .setRequired(true)
           .setMinValue(1)
-          .setMaxValue(10))
+          .setMaxValue(9))
       .addUserOption(option =>
         option.setName("user")
           .setDescription("Het lid dat gepromoveerd wordt")
@@ -245,13 +275,13 @@ async function registerCommands() {
     
     new SlashCommandBuilder()
       .setName("demote")
-      .setDescription("Demoveer een lid naar een lagere rang")
+      .setDescription("Demoveer een lid (1=-1 rank, 2=-2 ranks, etc.)")
       .addIntegerOption(option =>
-        option.setName("number")
-          .setDescription("Rang nummer: 10=Jefe, 9=Sub Jefe, 8=Encargado, 7=Sicario, 6=Paro, 5=Activo, 4=Chequeos, 3=Colaborador, 2=Soldado, 1=Recruta")
+        option.setName("steps")
+          .setDescription("Aantal stappen omlaag (1-9)")
           .setRequired(true)
           .setMinValue(1)
-          .setMaxValue(10))
+          .setMaxValue(9))
       .addUserOption(option =>
         option.setName("user")
           .setDescription("Het lid dat gedemoveerd wordt")
@@ -278,6 +308,22 @@ async function registerCommands() {
         option.setName("reason")
           .setDescription("Reden voor waarschuwing")
           .setRequired(true)),
+    
+    new SlashCommandBuilder()
+      .setName("afwezigheid")
+      .setDescription("Meld je afwezigheid (iedereen kan dit gebruiken)")
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden van afwezigheid")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("from")
+          .setDescription("Vanaf welke datum (bijv. 15 mei 2026)")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("til")
+          .setDescription("Tot welke datum (bijv. 20 mei 2026)")
+          .setRequired(true)),
   ].map(cmd => cmd.toJSON());
 
   try {
@@ -294,9 +340,9 @@ async function registerCommands() {
   }
 }
 
-// PROMOTE command handler (higher number = higher rank)
+// PROMOTE command handler (steps UP)
 async function handlePromote(interaction) {
-  const number = interaction.options.getInteger("number");
+  const steps = interaction.options.getInteger("steps");
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
@@ -312,25 +358,34 @@ async function handlePromote(interaction) {
     return;
   }
 
-  const newRoleId = getRoleIdByLevel(number);
+  // Get current rank level
+  const currentLevel = getCurrentRankLevel(targetMember);
+  if (currentLevel === 0) {
+    await interaction.reply({ content: `❌ ${targetUser} heeft geen gang rol!`, ephemeral: true });
+    return;
+  }
+
+  // Calculate new level (add steps)
+  let newLevel = currentLevel + steps;
+  if (newLevel > 10) {
+    newLevel = 10;
+  }
+
+  const newRoleId = getRoleIdByLevel(newLevel);
   if (!newRoleId) {
-    await interaction.reply({ content: `❌ Rang nummer ${number} bestaat niet! Gebruik 1-10.`, ephemeral: true });
+    await interaction.reply({ content: `❌ Kan niet promoveren naar niveau ${newLevel}`, ephemeral: true });
     return;
   }
 
   const newRole = interaction.guild.roles.cache.get(newRoleId);
-  if (!newRole) {
-    await interaction.reply({ content: `❌ Rol voor rang ${number} niet gevonden!`, ephemeral: true });
-    return;
-  }
+  const oldRankName = getRankNameByLevel(currentLevel);
+  const newRankName = getRankNameByLevel(newLevel);
 
-  const rankName = getRankNameByLevel(number);
-  
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${rankName} (${newRole.name})!` });
-    await sendActionEmbed(`PROMOTIE MK-13`, targetMember, reason, PROMO_CHANNEL_ID, "promotion");
+    await interaction.reply({ content: `✅ ${targetUser.username} is gepromoveerd van ${oldRankName} naar ${newRankName} (+${steps})!` });
+    await sendActionEmbed(`PROMOTIE MK-13 (+${steps})`, targetMember, reason, PROMO_CHANNEL_ID, "promotion");
     await safeUpdateList();
   } catch (error) {
     console.error("Promote error:", error);
@@ -340,9 +395,9 @@ async function handlePromote(interaction) {
   }
 }
 
-// DEMOTE command handler (lower number = lower rank)
+// DEMOTE command handler (steps DOWN)
 async function handleDemote(interaction) {
-  const number = interaction.options.getInteger("number");
+  const steps = interaction.options.getInteger("steps");
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
@@ -358,25 +413,34 @@ async function handleDemote(interaction) {
     return;
   }
 
-  const newRoleId = getRoleIdByLevel(number);
+  // Get current rank level
+  const currentLevel = getCurrentRankLevel(targetMember);
+  if (currentLevel === 0) {
+    await interaction.reply({ content: `❌ ${targetUser} heeft geen gang rol!`, ephemeral: true });
+    return;
+  }
+
+  // Calculate new level (subtract steps)
+  let newLevel = currentLevel - steps;
+  if (newLevel < 1) {
+    newLevel = 1;
+  }
+
+  const newRoleId = getRoleIdByLevel(newLevel);
   if (!newRoleId) {
-    await interaction.reply({ content: `❌ Rang nummer ${number} bestaat niet! Gebruik 1-10.`, ephemeral: true });
+    await interaction.reply({ content: `❌ Kan niet demoveren naar niveau ${newLevel}`, ephemeral: true });
     return;
   }
 
   const newRole = interaction.guild.roles.cache.get(newRoleId);
-  if (!newRole) {
-    await interaction.reply({ content: `❌ Rol voor rang ${number} niet gevonden!`, ephemeral: true });
-    return;
-  }
+  const oldRankName = getRankNameByLevel(currentLevel);
+  const newRankName = getRankNameByLevel(newLevel);
 
-  const rankName = getRankNameByLevel(number);
-  
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${rankName} (${newRole.name})!` });
-    await sendActionEmbed(`DEMOTE MK-13`, targetMember, reason, DEMOTE_CHANNEL_ID, "demotion");
+    await interaction.reply({ content: `✅ ${targetUser.username} is gedemoveerd van ${oldRankName} naar ${newRankName} (-${steps})!` });
+    await sendActionEmbed(`DEMOTE MK-13 (-${steps})`, targetMember, reason, DEMOTE_CHANNEL_ID, "demotion");
     await safeUpdateList();
   } catch (error) {
     console.error("Demote error:", error);
@@ -426,11 +490,30 @@ async function handleWarn(interaction) {
 
   try {
     await targetMember.roles.add(warnRole);
-    await interaction.reply({ content: `✅ ${targetUser} heeft een ${warnLevel} gekregen!` });
+    await interaction.reply({ content: `✅ ${targetUser.username} heeft een ${warnLevel} gekregen!` });
     await sendActionEmbed(`WARN MK-13`, targetMember, reason, WARN_CHANNEL_ID, "warn");
   } catch (error) {
     console.error("Warn error:", error);
     if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+    }
+  }
+}
+
+// AFWEZIGHEID command handler (everyone can use)
+async function handleAfwezigheid(interaction) {
+  const reason = interaction.options.getString("reason");
+  const fromDate = interaction.options.getString("from");
+  const tilDate = interaction.options.getString("til");
+  const user = interaction.user;
+  const member = interaction.member;
+
+  try {
+    await interaction.reply({ content: `✅ ${user.username}, je afwezigheid is gemeld!`, ephemeral: true });
+    await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
+  } catch (error) {
+    console.error("Afwezigheid error:", error);
+    if (!interaction.replied) {
       await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
     }
   }
@@ -512,6 +595,8 @@ client.on("interactionCreate", async (interaction) => {
     await handleDemote(interaction);
   } else if (interaction.commandName === "warn") {
     await handleWarn(interaction);
+  } else if (interaction.commandName === "afwezigheid") {
+    await handleAfwezigheid(interaction);
   }
 });
 
