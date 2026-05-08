@@ -35,6 +35,7 @@ const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
 
+// Ranks with correct numbering: 10 = highest (Jefe), 1 = lowest (Recruta)
 const ranks = [
   { name: "👑 Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541", level: 10 },
   { name: "🧠 Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999", level: 9 },
@@ -48,6 +49,7 @@ const ranks = [
   { name: "🆕 Recruta", roleId: process.env.ROLE_RECRUTA ?? "1475784699753267364", level: 1 },
 ];
 
+// Sort ranks by level (highest first)
 const sortedRanks = [...ranks].sort((a, b) => b.level - a.level);
 
 function getNumber(name) {
@@ -79,6 +81,11 @@ function hasAdminRole(member) {
 function getRoleIdByLevel(level) {
   const rank = ranks.find(r => r.level === level);
   return rank ? rank.roleId : null;
+}
+
+function getRankNameByLevel(level) {
+  const rank = ranks.find(r => r.level === level);
+  return rank ? rank.name : null;
 }
 
 async function removeAllGangRoles(member) {
@@ -124,7 +131,8 @@ async function buildEmbed() {
   let body = "";
   const uniqueMembers = new Set();
 
-  for (const rank of ranks) {
+  // Show ranks from highest to lowest
+  for (const rank of sortedRanks) {
     const role = guild.roles.cache.get(rank.roleId);
     if (!role) {
       body += `**${rank.name} (0)**\n`;
@@ -222,7 +230,7 @@ async function registerCommands() {
       .setDescription("Promoveer een lid naar een hogere rang")
       .addIntegerOption(option =>
         option.setName("number")
-          .setDescription("Het rang nummer (1-10, 10 is hoogste)")
+          .setDescription("Rang nummer: 10=Jefe, 9=Sub Jefe, 8=Encargado, 7=Sicario, 6=Paro, 5=Activo, 4=Chequeos, 3=Colaborador, 2=Soldado, 1=Recruta")
           .setRequired(true)
           .setMinValue(1)
           .setMaxValue(10))
@@ -240,7 +248,7 @@ async function registerCommands() {
       .setDescription("Demoveer een lid naar een lagere rang")
       .addIntegerOption(option =>
         option.setName("number")
-          .setDescription("Het rang nummer (1-10, 1 is laagste)")
+          .setDescription("Rang nummer: 10=Jefe, 9=Sub Jefe, 8=Encargado, 7=Sicario, 6=Paro, 5=Activo, 4=Chequeos, 3=Colaborador, 2=Soldado, 1=Recruta")
           .setRequired(true)
           .setMinValue(1)
           .setMaxValue(10))
@@ -286,7 +294,7 @@ async function registerCommands() {
   }
 }
 
-// PROMOTE command handler
+// PROMOTE command handler (higher number = higher rank)
 async function handlePromote(interaction) {
   const number = interaction.options.getInteger("number");
   const targetUser = interaction.options.getUser("user");
@@ -316,10 +324,12 @@ async function handlePromote(interaction) {
     return;
   }
 
+  const rankName = getRankNameByLevel(number);
+  
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${newRole.name}!` });
+    await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${rankName} (${newRole.name})!` });
     await sendActionEmbed(`PROMOTIE MK-13`, targetMember, reason, PROMO_CHANNEL_ID, "promotion");
     await safeUpdateList();
   } catch (error) {
@@ -330,7 +340,7 @@ async function handlePromote(interaction) {
   }
 }
 
-// DEMOTE command handler
+// DEMOTE command handler (lower number = lower rank)
 async function handleDemote(interaction) {
   const number = interaction.options.getInteger("number");
   const targetUser = interaction.options.getUser("user");
@@ -360,10 +370,12 @@ async function handleDemote(interaction) {
     return;
   }
 
+  const rankName = getRankNameByLevel(number);
+  
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${newRole.name}!` });
+    await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${rankName} (${newRole.name})!` });
     await sendActionEmbed(`DEMOTE MK-13`, targetMember, reason, DEMOTE_CHANNEL_ID, "demotion");
     await safeUpdateList();
   } catch (error) {
@@ -374,27 +386,24 @@ async function handleDemote(interaction) {
   }
 }
 
-// WARN command handler - FIXED
+// WARN command handler
 async function handleWarn(interaction) {
   const number = interaction.options.getInteger("number");
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
 
-  // Check admin role
   if (!hasAdminRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
     return;
   }
 
-  // Get the target member
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", ephemeral: true });
     return;
   }
 
-  // Determine which warn role to add
   let warnRoleId = null;
   let warnLevel = "";
   
@@ -416,18 +425,11 @@ async function handleWarn(interaction) {
   }
 
   try {
-    // Add the warn role
     await targetMember.roles.add(warnRole);
-    
-    // Send confirmation (ONLY ONE REPLY)
     await interaction.reply({ content: `✅ ${targetUser} heeft een ${warnLevel} gekregen!` });
-    
-    // Send embed to WARN channel
     await sendActionEmbed(`WARN MK-13`, targetMember, reason, WARN_CHANNEL_ID, "warn");
-    
   } catch (error) {
     console.error("Warn error:", error);
-    // Only reply if we haven't already
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
     }
