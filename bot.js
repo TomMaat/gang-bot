@@ -5,6 +5,7 @@ import {
   GatewayIntentBits,
   MessageFlags,
   SlashCommandBuilder,
+  PermissionFlagsBits,
 } from "discord.js";
 
 // Create a web server so Render knows the bot is alive
@@ -25,18 +26,26 @@ if (!TOKEN) {
 const CHANNEL_ID = process.env.GANG_CHANNEL_ID ?? "1475784753264201740";
 const ROLE_CHANGE_DEBOUNCE_MS = 3000;
 
+// Role IDs for admin commands
+const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
+const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
+const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
+
 const ranks = [
-  { name: "👑 Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541" },
-  { name: "🧠 Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999" },
-  { name: "🎯 Encargado", roleId: process.env.ROLE_ENCARGADO ?? "1499735272299040798" },
-  { name: "🔫 Sicario", roleId: process.env.ROLE_SICARIO ?? "1475784696553144321" },
-  { name: "💰 Paro", roleId: process.env.ROLE_PARO ?? "1478541802494627841" },
-  { name: "⚡ Activo", roleId: process.env.ROLE_ACTIVO ?? "1499735621156081774" },
-  { name: "📦 Chequeos", roleId: process.env.ROLE_CHEQUEOS ?? "1475784700982329407" },
-  { name: "🤝 Colaborador", roleId: process.env.ROLE_COLABORADOR ?? "1499736095158435960" },
-  { name: "🪖 Soldado", roleId: process.env.ROLE_SOLDADO ?? "1475784699073921104" },
-  { name: "🆕 Recruta", roleId: process.env.ROLE_RECRUTA ?? "1475784699753267364" },
+  { name: "👑 Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541", level: 10 },
+  { name: "🧠 Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999", level: 9 },
+  { name: "🎯 Encargado", roleId: process.env.ROLE_ENCARGADO ?? "1499735272299040798", level: 8 },
+  { name: "🔫 Sicario", roleId: process.env.ROLE_SICARIO ?? "1475784696553144321", level: 7 },
+  { name: "💰 Paro", roleId: process.env.ROLE_PARO ?? "1478541802494627841", level: 6 },
+  { name: "⚡ Activo", roleId: process.env.ROLE_ACTIVO ?? "1499735621156081774", level: 5 },
+  { name: "📦 Chequeos", roleId: process.env.ROLE_CHEQUEOS ?? "1475784700982329407", level: 4 },
+  { name: "🤝 Colaborador", roleId: process.env.ROLE_COLABORADOR ?? "1499736095158435960", level: 3 },
+  { name: "🪖 Soldado", roleId: process.env.ROLE_SOLDADO ?? "1475784699073921104", level: 2 },
+  { name: "🆕 Recruta", roleId: process.env.ROLE_RECRUTA ?? "1475784699753267364", level: 1 },
 ];
+
+// Sort ranks by level (highest first for easier promotion logic)
+const sortedRanks = [...ranks].sort((a, b) => b.level - a.level);
 
 function getNumber(name) {
   const match = name.match(/\d+/);
@@ -48,7 +57,58 @@ function displayName(member) {
 }
 
 function memberLink(id, _name) {
-  return `<@${id}>`;
+  return `<@!${id}>`;
+}
+
+// Helper function to check if user has admin role
+function hasAdminRole(member) {
+  return member.roles.cache.has(ADMIN_ROLE_ID);
+}
+
+// Helper function to get current rank level of a member
+function getCurrentRankLevel(member) {
+  for (const rank of sortedRanks) {
+    if (member.roles.cache.has(rank.roleId)) {
+      return rank.level;
+    }
+  }
+  return 0; // No gang role found
+}
+
+// Helper function to get role ID by level
+function getRoleIdByLevel(level) {
+  const rank = ranks.find(r => r.level === level);
+  return rank ? rank.roleId : null;
+}
+
+// Helper function to remove all gang roles from a member
+async function removeAllGangRoles(member) {
+  const gangRoleIds = ranks.map(r => r.roleId);
+  const rolesToRemove = member.roles.cache.filter(role => gangRoleIds.includes(role.id));
+  if (rolesToRemove.size > 0) {
+    await member.roles.remove(rolesToRemove);
+  }
+}
+
+// Helper function to send embed to gang channel
+async function sendActionEmbed(title, user, reason, actionType = "promotion") {
+  const channel = await client.channels.fetch(CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) {
+    console.error("Cannot send embed: Channel not found");
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: new Date().toLocaleString('nl-NL'), inline: false }
+    )
+    .setColor(actionType === "promotion" ? 0x00FF00 : (actionType === "demotion" ? 0xFF0000 : 0xFFA500))
+    .setTimestamp();
+
+  await channel.send({ embeds: [embed] });
 }
 
 const client = new Client({
@@ -154,32 +214,250 @@ async function safeUpdateList() {
 
 async function registerCommands() {
   const commands = [
+    // Existing refresh command
     new SlashCommandBuilder()
       .setName("refresh")
       .setDescription("Refresh de gang ledenlijst nu")
       .addBooleanOption((option) =>
         option.setName("ephemeral").setDescription("Toon alleen aan jou").setRequired(false)
-      )
-      .toJSON(),
-  ];
+      ),
+    
+    // PROMOTE command
+    new SlashCommandBuilder()
+      .setName("promo")
+      .setDescription("Promoveer een lid naar een hogere rang")
+      .addIntegerOption(option =>
+        option.setName("number")
+          .setDescription("Het rang nummer (1-10, 10 is hoogste)")
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(10))
+      .addUserOption(option =>
+        option.setName("user")
+          .setDescription("Het lid dat gepromoveerd wordt")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden voor promotie")
+          .setRequired(true)),
+    
+    // DEMOTE command
+    new SlashCommandBuilder()
+      .setName("demote")
+      .setDescription("Demoveer een lid naar een lagere rang")
+      .addIntegerOption(option =>
+        option.setName("number")
+          .setDescription("Het rang nummer (1-10, 1 is laagste)")
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(10))
+      .addUserOption(option =>
+        option.setName("user")
+          .setDescription("Het lid dat gedemoveerd wordt")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden voor demotie")
+          .setRequired(true)),
+    
+    // WARN command
+    new SlashCommandBuilder()
+      .setName("warn")
+      .setDescription("Geef een waarschuwing aan een lid")
+      .addIntegerOption(option =>
+        option.setName("number")
+          .setDescription("1 = 1e waarschuwing, 2 = 2e waarschuwing")
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(2))
+      .addUserOption(option =>
+        option.setName("user")
+          .setDescription("Het lid dat gewaarschuwd wordt")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden voor waarschuwing")
+          .setRequired(true)),
+  ].map(cmd => cmd.toJSON());
 
   try {
     const guild = client.guilds.cache.first();
     if (guild) {
       await guild.commands.set(commands);
-      console.log(`✅ /refresh geregistreerd in ${guild.name}`);
+      console.log(`✅ Commands geregistreerd in ${guild.name}`);
     } else {
       await client.application?.commands.set(commands);
-      console.log("✅ /refresh globaal geregistreerd");
+      console.log("✅ Commands globaal geregistreerd");
     }
   } catch (err) {
-    console.error("Failed to register slash commands:", err);
+    console.error("Failed to register commands:", err);
+  }
+}
+
+// PROMOTE command handler
+async function handlePromote(interaction) {
+  const number = interaction.options.getInteger("number");
+  const targetUser = interaction.options.getUser("user");
+  const reason = interaction.options.getString("reason");
+  const executor = interaction.member;
+
+  // Check admin role
+  if (!hasAdminRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
+    return;
+  }
+
+  // Get the target member
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", ephemeral: true });
+    return;
+  }
+
+  // Get the new role ID based on number
+  const newRoleId = getRoleIdByLevel(number);
+  if (!newRoleId) {
+    await interaction.reply({ content: `❌ Rang nummer ${number} bestaat niet! Gebruik 1-10.`, ephemeral: true });
+    return;
+  }
+
+  const newRole = interaction.guild.roles.cache.get(newRoleId);
+  if (!newRole) {
+    await interaction.reply({ content: `❌ Rol voor rang ${number} niet gevonden!`, ephemeral: true });
+    return;
+  }
+
+  try {
+    // Remove all old gang roles and add the new one
+    await removeAllGangRoles(targetMember);
+    await targetMember.roles.add(newRole);
+    
+    // Send confirmation
+    await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${newRole.name}!`, ephemeral: true });
+    
+    // Send embed to gang channel
+    await sendActionEmbed(`## PROMOTIE MK-13`, targetMember, reason, "promotion");
+    
+    // Update the member list
+    await safeUpdateList();
+  } catch (error) {
+    console.error("Promote error:", error);
+    await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+  }
+}
+
+// DEMOTE command handler
+async function handleDemote(interaction) {
+  const number = interaction.options.getInteger("number");
+  const targetUser = interaction.options.getUser("user");
+  const reason = interaction.options.getString("reason");
+  const executor = interaction.member;
+
+  // Check admin role
+  if (!hasAdminRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
+    return;
+  }
+
+  // Get the target member
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", ephemeral: true });
+    return;
+  }
+
+  // Get the new role ID based on number
+  const newRoleId = getRoleIdByLevel(number);
+  if (!newRoleId) {
+    await interaction.reply({ content: `❌ Rang nummer ${number} bestaat niet! Gebruik 1-10.`, ephemeral: true });
+    return;
+  }
+
+  const newRole = interaction.guild.roles.cache.get(newRoleId);
+  if (!newRole) {
+    await interaction.reply({ content: `❌ Rol voor rang ${number} niet gevonden!`, ephemeral: true });
+    return;
+  }
+
+  try {
+    // Remove all old gang roles and add the new one
+    await removeAllGangRoles(targetMember);
+    await targetMember.roles.add(newRole);
+    
+    // Send confirmation
+    await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${newRole.name}!`, ephemeral: true });
+    
+    // Send embed to gang channel
+    await sendActionEmbed(`## DEMOTE MK-13`, targetMember, reason, "demotion");
+    
+    // Update the member list
+    await safeUpdateList();
+  } catch (error) {
+    console.error("Demote error:", error);
+    await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+  }
+}
+
+// WARN command handler
+async function handleWarn(interaction) {
+  const number = interaction.options.getInteger("number");
+  const targetUser = interaction.options.getUser("user");
+  const reason = interaction.options.getString("reason");
+  const executor = interaction.member;
+
+  // Check admin role
+  if (!hasAdminRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
+    return;
+  }
+
+  // Get the target member
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", ephemeral: true });
+    return;
+  }
+
+  // Determine which warn role to add
+  let warnRoleId = null;
+  let warnLevel = "";
+  
+  if (number === 1) {
+    warnRoleId = WARN_ROLE_LEVEL1;
+    warnLevel = "1e Waarschuwing";
+  } else if (number === 2) {
+    warnRoleId = WARN_ROLE_LEVEL2;
+    warnLevel = "2e Waarschuwing";
+  } else {
+    await interaction.reply({ content: "❌ Nummer moet 1 of 2 zijn!", ephemeral: true });
+    return;
+  }
+
+  const warnRole = interaction.guild.roles.cache.get(warnRoleId);
+  if (!warnRole) {
+    await interaction.reply({ content: `❌ Waarschuwingsrol niet gevonden! Neem contact op met een beheerder.`, ephemeral: true });
+    return;
+  }
+
+  try {
+    // Add the warn role
+    await targetMember.roles.add(warnRole);
+    
+    // Send confirmation
+    await interaction.reply({ content: `✅ ${targetUser} heeft een ${warnLevel} gekregen!`, ephemeral: true });
+    
+    // Send embed to gang channel
+    await sendActionEmbed(`## WARN MK-13`, targetMember, reason, "warn");
+    
+  } catch (error) {
+    console.error("Warn error:", error);
+    await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
   }
 }
 
 async function handleRefresh(interaction) {
   const ephemeral = interaction.options.getBoolean("ephemeral") ?? true;
-  await interaction.deferReply({ flags: ephemeral ? 64 : 0 });
+  await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : 0 });
   try {
     await updateList();
     await interaction.editReply("✅ Ledenlijst bijgewerkt.");
@@ -241,9 +519,19 @@ client.on("guildMemberRemove", (member) => {
   if (hasGangRole) scheduleUpdate();
 });
 
-client.on("interactionCreate", (interaction) => {
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName === "refresh") handleRefresh(interaction);
+  
+  // Route commands to their handlers
+  if (interaction.commandName === "refresh") {
+    await handleRefresh(interaction);
+  } else if (interaction.commandName === "promo") {
+    await handlePromote(interaction);
+  } else if (interaction.commandName === "demote") {
+    await handleDemote(interaction);
+  } else if (interaction.commandName === "warn") {
+    await handleWarn(interaction);
+  }
 });
 
 process.on("unhandledRejection", (reason) => {
