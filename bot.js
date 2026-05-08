@@ -25,6 +25,11 @@ if (!TOKEN) {
 const CHANNEL_ID = process.env.GANG_CHANNEL_ID ?? "1475784753264201740";
 const ROLE_CHANGE_DEBOUNCE_MS = 3000;
 
+// Separate channel IDs for different actions
+const WARN_CHANNEL_ID = "1475784747392172178";
+const PROMO_CHANNEL_ID = "1478540121555996836";
+const DEMOTE_CHANNEL_ID = "1502446924702290053";
+
 // Role IDs for admin commands
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
@@ -59,6 +64,16 @@ function memberLink(id, _name) {
   return `<@!${id}>`;
 }
 
+// Helper function to get current date only (no time)
+function getCurrentDate() {
+  const date = new Date();
+  return date.toLocaleDateString('nl-NL', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
 // Helper function to check if user has admin role
 function hasAdminRole(member) {
   return member.roles.cache.has(ADMIN_ROLE_ID);
@@ -89,11 +104,11 @@ async function removeAllGangRoles(member) {
   }
 }
 
-// Helper function to send embed to gang channel (VISIBLE TO EVERYONE)
-async function sendActionEmbed(title, user, reason, actionType = "promotion") {
-  const channel = await client.channels.fetch(CHANNEL_ID);
+// Helper function to send embed to specific channel (NO hashtags, ONLY date)
+async function sendActionEmbed(title, user, reason, channelId, actionType = "promotion") {
+  const channel = await client.channels.fetch(channelId);
   if (!channel || !channel.isTextBased()) {
-    console.error("Cannot send embed: Channel not found");
+    console.error(`Cannot send embed: Channel ${channelId} not found`);
     return;
   }
 
@@ -102,10 +117,9 @@ async function sendActionEmbed(title, user, reason, actionType = "promotion") {
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
       { name: "📝 Reden", value: reason, inline: false },
-      { name: "📅 Datum", value: new Date().toLocaleString('nl-NL'), inline: false }
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
-    .setColor(actionType === "promotion" ? 0x00FF00 : (actionType === "demotion" ? 0xFF0000 : 0xFFA500))
-    .setTimestamp();
+    .setColor(actionType === "promotion" ? 0x00FF00 : (actionType === "demotion" ? 0xFF0000 : 0xFFA500));
 
   await channel.send({ embeds: [embed] });
 }
@@ -331,11 +345,11 @@ async function handlePromote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     
-    // Send confirmation (VISIBLE TO EVERYONE - no ephemeral)
+    // Send confirmation (VISIBLE TO EVERYONE)
     await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${newRole.name}!` });
     
-    // Send embed to gang channel (VISIBLE TO EVERYONE)
-    await sendActionEmbed(`## PROMOTIE MK-13`, targetMember, reason, "promotion");
+    // Send embed to PROMO channel (NO hashtags, NO time)
+    await sendActionEmbed(`PROMOTIE MK-13`, targetMember, reason, PROMO_CHANNEL_ID, "promotion");
     
     // Update the member list
     await safeUpdateList();
@@ -383,11 +397,11 @@ async function handleDemote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     
-    // Send confirmation (VISIBLE TO EVERYONE - no ephemeral)
+    // Send confirmation (VISIBLE TO EVERYONE)
     await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${newRole.name}!` });
     
-    // Send embed to gang channel (VISIBLE TO EVERYONE)
-    await sendActionEmbed(`## DEMOTE MK-13`, targetMember, reason, "demotion");
+    // Send embed to DEMOTE channel (NO hashtags, NO time)
+    await sendActionEmbed(`DEMOTE MK-13`, targetMember, reason, DEMOTE_CHANNEL_ID, "demotion");
     
     // Update the member list
     await safeUpdateList();
@@ -442,11 +456,11 @@ async function handleWarn(interaction) {
     // Add the warn role
     await targetMember.roles.add(warnRole);
     
-    // Send confirmation (VISIBLE TO EVERYONE - no ephemeral)
+    // Send confirmation (VISIBLE TO EVERYONE)
     await interaction.reply({ content: `✅ ${targetUser} heeft een ${warnLevel} gekregen!` });
     
-    // Send embed to gang channel (VISIBLE TO EVERYONE)
-    await sendActionEmbed(`## WARN MK-13`, targetMember, reason, "warn");
+    // Send embed to WARN channel (NO hashtags, NO time)
+    await sendActionEmbed(`WARN MK-13`, targetMember, reason, WARN_CHANNEL_ID, "warn");
     
   } catch (error) {
     console.error("Warn error:", error);
@@ -456,7 +470,7 @@ async function handleWarn(interaction) {
 
 // REFRESH command handler
 async function handleRefresh(interaction) {
-  const ephemeral = interaction.options.getBoolean("ephemeral") ?? false; // Changed to false by default
+  const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
   await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : 0 });
   try {
     await updateList();
@@ -522,7 +536,6 @@ client.on("guildMemberRemove", (member) => {
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   
-  // Route commands to their handlers
   if (interaction.commandName === "refresh") {
     await handleRefresh(interaction);
   } else if (interaction.commandName === "promo") {
