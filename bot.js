@@ -48,7 +48,6 @@ const ranks = [
   { name: "🆕 Recruta", roleId: process.env.ROLE_RECRUTA ?? "1475784699753267364", level: 1 },
 ];
 
-// Sort ranks by level (highest first for easier promotion logic)
 const sortedRanks = [...ranks].sort((a, b) => b.level - a.level);
 
 function getNumber(name) {
@@ -64,7 +63,6 @@ function memberLink(id, _name) {
   return `<@!${id}>`;
 }
 
-// Helper function to get current date only (no time)
 function getCurrentDate() {
   const date = new Date();
   return date.toLocaleDateString('nl-NL', {
@@ -74,28 +72,15 @@ function getCurrentDate() {
   });
 }
 
-// Helper function to check if user has admin role
 function hasAdminRole(member) {
   return member.roles.cache.has(ADMIN_ROLE_ID);
 }
 
-// Helper function to get current rank level of a member
-function getCurrentRankLevel(member) {
-  for (const rank of sortedRanks) {
-    if (member.roles.cache.has(rank.roleId)) {
-      return rank.level;
-    }
-  }
-  return 0; // No gang role found
-}
-
-// Helper function to get role ID by level
 function getRoleIdByLevel(level) {
   const rank = ranks.find(r => r.level === level);
   return rank ? rank.roleId : null;
 }
 
-// Helper function to remove all gang roles from a member
 async function removeAllGangRoles(member) {
   const gangRoleIds = ranks.map(r => r.roleId);
   const rolesToRemove = member.roles.cache.filter(role => gangRoleIds.includes(role.id));
@@ -104,7 +89,6 @@ async function removeAllGangRoles(member) {
   }
 }
 
-// Helper function to send embed to specific channel (NO hashtags, ONLY date)
 async function sendActionEmbed(title, user, reason, channelId, actionType = "promotion") {
   const channel = await client.channels.fetch(channelId);
   if (!channel || !channel.isTextBased()) {
@@ -202,7 +186,6 @@ async function updateList() {
     }
   }
 
-  // Delete old bot messages
   try {
     const fetched = await channel.messages.fetch({ limit: 100 });
     const botMessages = fetched.filter((m) => m.author.id === client.user?.id);
@@ -227,7 +210,6 @@ async function safeUpdateList() {
 
 async function registerCommands() {
   const commands = [
-    // Existing refresh command
     new SlashCommandBuilder()
       .setName("refresh")
       .setDescription("Refresh de gang ledenlijst nu")
@@ -235,7 +217,6 @@ async function registerCommands() {
         option.setName("ephemeral").setDescription("Toon alleen aan jou").setRequired(false)
       ),
     
-    // PROMOTE command
     new SlashCommandBuilder()
       .setName("promo")
       .setDescription("Promoveer een lid naar een hogere rang")
@@ -254,7 +235,6 @@ async function registerCommands() {
           .setDescription("Reden voor promotie")
           .setRequired(true)),
     
-    // DEMOTE command
     new SlashCommandBuilder()
       .setName("demote")
       .setDescription("Demoveer een lid naar een lagere rang")
@@ -273,7 +253,6 @@ async function registerCommands() {
           .setDescription("Reden voor demotie")
           .setRequired(true)),
     
-    // WARN command
     new SlashCommandBuilder()
       .setName("warn")
       .setDescription("Geef een waarschuwing aan een lid")
@@ -314,20 +293,17 @@ async function handlePromote(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
 
-  // Check admin role
   if (!hasAdminRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
     return;
   }
 
-  // Get the target member
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", ephemeral: true });
     return;
   }
 
-  // Get the new role ID based on number
   const newRoleId = getRoleIdByLevel(number);
   if (!newRoleId) {
     await interaction.reply({ content: `❌ Rang nummer ${number} bestaat niet! Gebruik 1-10.`, ephemeral: true });
@@ -341,21 +317,16 @@ async function handlePromote(interaction) {
   }
 
   try {
-    // Remove all old gang roles and add the new one
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    
-    // Send confirmation (VISIBLE TO EVERYONE)
     await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${newRole.name}!` });
-    
-    // Send embed to PROMO channel (NO hashtags, NO time)
     await sendActionEmbed(`PROMOTIE MK-13`, targetMember, reason, PROMO_CHANNEL_ID, "promotion");
-    
-    // Update the member list
     await safeUpdateList();
   } catch (error) {
     console.error("Promote error:", error);
-    await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+    if (!interaction.replied) {
+      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
@@ -366,20 +337,17 @@ async function handleDemote(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
 
-  // Check admin role
   if (!hasAdminRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
     return;
   }
 
-  // Get the target member
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", ephemeral: true });
     return;
   }
 
-  // Get the new role ID based on number
   const newRoleId = getRoleIdByLevel(number);
   if (!newRoleId) {
     await interaction.reply({ content: `❌ Rang nummer ${number} bestaat niet! Gebruik 1-10.`, ephemeral: true });
@@ -393,25 +361,20 @@ async function handleDemote(interaction) {
   }
 
   try {
-    // Remove all old gang roles and add the new one
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    
-    // Send confirmation (VISIBLE TO EVERYONE)
     await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${newRole.name}!` });
-    
-    // Send embed to DEMOTE channel (NO hashtags, NO time)
     await sendActionEmbed(`DEMOTE MK-13`, targetMember, reason, DEMOTE_CHANNEL_ID, "demotion");
-    
-    // Update the member list
     await safeUpdateList();
   } catch (error) {
     console.error("Demote error:", error);
-    await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+    if (!interaction.replied) {
+      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
-// WARN command handler
+// WARN command handler - FIXED
 async function handleWarn(interaction) {
   const number = interaction.options.getInteger("number");
   const targetUser = interaction.options.getUser("user");
@@ -456,15 +419,18 @@ async function handleWarn(interaction) {
     // Add the warn role
     await targetMember.roles.add(warnRole);
     
-    // Send confirmation (VISIBLE TO EVERYONE)
+    // Send confirmation (ONLY ONE REPLY)
     await interaction.reply({ content: `✅ ${targetUser} heeft een ${warnLevel} gekregen!` });
     
-    // Send embed to WARN channel (NO hashtags, NO time)
+    // Send embed to WARN channel
     await sendActionEmbed(`WARN MK-13`, targetMember, reason, WARN_CHANNEL_ID, "warn");
     
   } catch (error) {
     console.error("Warn error:", error);
-    await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+    // Only reply if we haven't already
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
