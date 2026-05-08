@@ -5,7 +5,6 @@ import {
   GatewayIntentBits,
   MessageFlags,
   SlashCommandBuilder,
-  PermissionFlagsBits,
 } from "discord.js";
 
 // Create a web server so Render knows the bot is alive
@@ -90,7 +89,7 @@ async function removeAllGangRoles(member) {
   }
 }
 
-// Helper function to send embed to gang channel
+// Helper function to send embed to gang channel (VISIBLE TO EVERYONE)
 async function sendActionEmbed(title, user, reason, actionType = "promotion") {
   const channel = await client.channels.fetch(CHANNEL_ID);
   if (!channel || !channel.isTextBased()) {
@@ -332,10 +331,10 @@ async function handlePromote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     
-    // Send confirmation
-    await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${newRole.name}!`, ephemeral: true });
+    // Send confirmation (VISIBLE TO EVERYONE - no ephemeral)
+    await interaction.reply({ content: `✅ ${targetUser} is gepromoveerd naar ${newRole.name}!` });
     
-    // Send embed to gang channel
+    // Send embed to gang channel (VISIBLE TO EVERYONE)
     await sendActionEmbed(`## PROMOTIE MK-13`, targetMember, reason, "promotion");
     
     // Update the member list
@@ -384,10 +383,10 @@ async function handleDemote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     
-    // Send confirmation
-    await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${newRole.name}!`, ephemeral: true });
+    // Send confirmation (VISIBLE TO EVERYONE - no ephemeral)
+    await interaction.reply({ content: `✅ ${targetUser} is gedemoveerd naar ${newRole.name}!` });
     
-    // Send embed to gang channel
+    // Send embed to gang channel (VISIBLE TO EVERYONE)
     await sendActionEmbed(`## DEMOTE MK-13`, targetMember, reason, "demotion");
     
     // Update the member list
@@ -443,10 +442,10 @@ async function handleWarn(interaction) {
     // Add the warn role
     await targetMember.roles.add(warnRole);
     
-    // Send confirmation
-    await interaction.reply({ content: `✅ ${targetUser} heeft een ${warnLevel} gekregen!`, ephemeral: true });
+    // Send confirmation (VISIBLE TO EVERYONE - no ephemeral)
+    await interaction.reply({ content: `✅ ${targetUser} heeft een ${warnLevel} gekregen!` });
     
-    // Send embed to gang channel
+    // Send embed to gang channel (VISIBLE TO EVERYONE)
     await sendActionEmbed(`## WARN MK-13`, targetMember, reason, "warn");
     
   } catch (error) {
@@ -455,8 +454,9 @@ async function handleWarn(interaction) {
   }
 }
 
+// REFRESH command handler
 async function handleRefresh(interaction) {
-  const ephemeral = interaction.options.getBoolean("ephemeral") ?? true;
+  const ephemeral = interaction.options.getBoolean("ephemeral") ?? false; // Changed to false by default
   await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : 0 });
   try {
     await updateList();
