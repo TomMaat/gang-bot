@@ -7,6 +7,28 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
+// ========================================
+// ⚙️ CONFIGURATION - CHANGE THESE VALUES ⚙️
+// ========================================
+
+// !!! REPLACE THIS WITH YOUR ACTUAL LOGO IMAGE URL !!!
+// How to get a working URL:
+// 1. Upload your logo to a free image hosting site like Imgur (https://imgur.com/upload)
+// 2. Right-click the uploaded image and select "Copy image address"
+// 3. Paste that URL between the quotes below
+const LOGO_URL = "https://cdn.discordapp.com/attachments/1460270106558070874/1498008879466942655/image.png?ex=69ff6afc&is=69fe197c&hm=175be611d64e32699b97ab56ebd56788f17d9a20025c8658a3183adfe30ea4b0&";
+
+// Channel IDs (verify these are correct for your server)
+const WARN_CHANNEL_ID = "1475784747392172178";
+const PROMO_CHANNEL_ID = "1478540121555996836";
+const DEMOTE_CHANNEL_ID = "1502446924702290053";
+const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
+const GANG_LIST_CHANNEL_ID = "1475784753264201740";
+
+// ========================================
+// ⚙️ END OF CONFIGURATION ⚙️
+// ========================================
+
 // Create a web server so Render knows the bot is alive
 const server = http.createServer((req, res) => {
   res.writeHead(200);
@@ -22,14 +44,7 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-const CHANNEL_ID = process.env.GANG_CHANNEL_ID ?? "1475784753264201740";
 const ROLE_CHANGE_DEBOUNCE_MS = 3000;
-
-// Separate channel IDs for different actions
-const WARN_CHANNEL_ID = "1475784747392172178";
-const PROMO_CHANNEL_ID = "1478540121555996836";
-const DEMOTE_CHANNEL_ID = "1502446924702290053";
-const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
 
 // Role IDs for admin commands
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
@@ -106,21 +121,74 @@ async function removeAllGangRoles(member) {
   }
 }
 
-async function sendActionEmbed(title, user, reason, channelId, actionType = "promotion") {
-  const channel = await client.channels.fetch(channelId);
+// ========================================
+// 📨 EMBED FUNCTIONS WITH CLEAN DESIGN
+// ========================================
+
+async function sendPromoEmbed(user, oldRank, newRank, reason, steps) {
+  const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
   if (!channel || !channel.isTextBased()) {
-    console.error(`Cannot send embed: Channel ${channelId} not found`);
+    console.error(`Cannot send embed: Channel ${PROMO_CHANNEL_ID} not found`);
     return;
   }
 
   const embed = new EmbedBuilder()
-    .setTitle(title)
+    .setTitle("🎉 PROMOTIE")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
+      { name: "📈 Van", value: oldRank, inline: true },
+      { name: "📈 Naar", value: newRank, inline: true },
       { name: "📝 Reden", value: reason, inline: false },
-      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
     )
-    .setColor(actionType === "promotion" ? 0x00FF00 : (actionType === "demotion" ? 0xFF0000 : 0xFFA500));
+    .setColor(0x00FF00)
+    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
+    .setTimestamp();
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendDemoteEmbed(user, oldRank, newRank, reason, steps) {
+  const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) {
+    console.error(`Cannot send embed: Channel ${DEMOTE_CHANNEL_ID} not found`);
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("📉 DEMOTIE")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📉 Van", value: oldRank, inline: true },
+      { name: "📉 Naar", value: newRank, inline: true },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+    )
+    .setColor(0xFF0000)
+    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
+    .setTimestamp();
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendWarnEmbed(user, warnLevel, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) {
+    console.error(`Cannot send embed: Channel ${WARN_CHANNEL_ID} not found`);
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("⚠️ WAARSCHUWING")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "⚠️ Niveau", value: warnLevel, inline: true },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+    )
+    .setColor(0xFFA500)
+    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
+    .setTimestamp();
 
   await channel.send({ embeds: [embed] });
 }
@@ -133,7 +201,7 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
   }
 
   const embed = new EmbedBuilder()
-    .setTitle("📋 AFWEZIGHEID MK-13")
+    .setTitle("📋 AFWEZIGHEID")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
       { name: "📝 Reden", value: reason, inline: false },
@@ -141,10 +209,16 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
       { name: "📅 Tot", value: tilDate, inline: true },
       { name: "📅 Gemeld op", value: getCurrentDate(), inline: false }
     )
-    .setColor(0x00A5FF);
+    .setColor(0x00A5FF)
+    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
+    .setTimestamp();
 
   await channel.send({ embeds: [embed] });
 }
+
+// ========================================
+// 🤖 DISCORD CLIENT SETUP
+// ========================================
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
@@ -203,9 +277,9 @@ async function updateList() {
     throw new Error("Bot zit niet in een server.");
   }
 
-  const channel = await client.channels.fetch(CHANNEL_ID);
+  const channel = await client.channels.fetch(GANG_LIST_CHANNEL_ID);
   if (!channel || !channel.isTextBased()) {
-    throw new Error(`Channel ${CHANNEL_ID} is geen tekstkanaal of bestaat niet.`);
+    throw new Error(`Channel ${GANG_LIST_CHANNEL_ID} is geen tekstkanaal of bestaat niet.`);
   }
 
   const payload = {
@@ -318,11 +392,11 @@ async function registerCommands() {
           .setRequired(true))
       .addStringOption(option =>
         option.setName("from")
-          .setDescription("Vanaf welke datum (bijv. 15 mei 2026)")
+          .setDescription("Vanaf welke datum (bijv. 27 april 2026)")
           .setRequired(true))
       .addStringOption(option =>
         option.setName("til")
-          .setDescription("Tot welke datum (bijv. 20 mei 2026)")
+          .setDescription("Tot welke datum (bijv. 30 april 2026)")
           .setRequired(true)),
   ].map(cmd => cmd.toJSON());
 
@@ -340,7 +414,10 @@ async function registerCommands() {
   }
 }
 
-// PROMOTE command handler (FIXED - no double replies)
+// ========================================
+// 🎮 COMMAND HANDLERS
+// ========================================
+
 async function handlePromote(interaction) {
   const steps = interaction.options.getInteger("steps");
   const targetUser = interaction.options.getUser("user");
@@ -366,6 +443,10 @@ async function handlePromote(interaction) {
 
   let newLevel = currentLevel + steps;
   if (newLevel > 10) newLevel = 10;
+  if (newLevel === currentLevel) {
+    await interaction.reply({ content: `❌ ${targetUser.username} is al op de hoogste rang!`, flags: MessageFlags.Ephemeral });
+    return;
+  }
 
   const newRoleId = getRoleIdByLevel(newLevel);
   if (!newRoleId) {
@@ -381,7 +462,7 @@ async function handlePromote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gepromoveerd van ${oldRankName} naar ${newRankName} (+${steps})!` });
-    await sendActionEmbed(`PROMOTIE MK-13 (+${steps})`, targetMember, reason, PROMO_CHANNEL_ID, "promotion");
+    await sendPromoEmbed(targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Promote error:", error);
@@ -391,7 +472,6 @@ async function handlePromote(interaction) {
   }
 }
 
-// DEMOTE command handler (FIXED - no double replies)
 async function handleDemote(interaction) {
   const steps = interaction.options.getInteger("steps");
   const targetUser = interaction.options.getUser("user");
@@ -417,6 +497,10 @@ async function handleDemote(interaction) {
 
   let newLevel = currentLevel - steps;
   if (newLevel < 1) newLevel = 1;
+  if (newLevel === currentLevel) {
+    await interaction.reply({ content: `❌ ${targetUser.username} is al op de laagste rang!`, flags: MessageFlags.Ephemeral });
+    return;
+  }
 
   const newRoleId = getRoleIdByLevel(newLevel);
   if (!newRoleId) {
@@ -432,7 +516,7 @@ async function handleDemote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gedemoveerd van ${oldRankName} naar ${newRankName} (-${steps})!` });
-    await sendActionEmbed(`DEMOTE MK-13 (-${steps})`, targetMember, reason, DEMOTE_CHANNEL_ID, "demotion");
+    await sendDemoteEmbed(targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Demote error:", error);
@@ -442,7 +526,6 @@ async function handleDemote(interaction) {
   }
 }
 
-// WARN command handler (FIXED)
 async function handleWarn(interaction) {
   const number = interaction.options.getInteger("number");
   const targetUser = interaction.options.getUser("user");
@@ -483,7 +566,7 @@ async function handleWarn(interaction) {
   try {
     await targetMember.roles.add(warnRole);
     await interaction.reply({ content: `✅ ${targetUser.username} heeft een ${warnLevel} gekregen!` });
-    await sendActionEmbed(`WARN MK-13`, targetMember, reason, WARN_CHANNEL_ID, "warn");
+    await sendWarnEmbed(targetMember, warnLevel, reason);
   } catch (error) {
     console.error("Warn error:", error);
     if (!interaction.replied) {
@@ -492,7 +575,6 @@ async function handleWarn(interaction) {
   }
 }
 
-// AFWEZIGHEID command handler (FIXED)
 async function handleAfwezigheid(interaction) {
   const reason = interaction.options.getString("reason");
   const fromDate = interaction.options.getString("from");
@@ -511,7 +593,6 @@ async function handleAfwezigheid(interaction) {
   }
 }
 
-// REFRESH command handler
 async function handleRefresh(interaction) {
   const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
   await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : 0 });
@@ -523,6 +604,10 @@ async function handleRefresh(interaction) {
     await interaction.editReply(`❌ Bijwerken mislukt: ${err.message}`);
   }
 }
+
+// ========================================
+// 🔄 EVENT HANDLERS
+// ========================================
 
 const watchedRoleIds = new Set(ranks.map((r) => r.roleId));
 let pendingUpdate = null;
