@@ -123,11 +123,6 @@ function getRankNameByLevel(level) {
   return rank ? rank.name : null;
 }
 
-function getRoleIdByName(rankName) {
-  const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
-  return rank ? rank.roleId : null;
-}
-
 function getCurrentRankLevel(member) {
   for (const rank of sortedRanks) {
     if (member.roles.cache.has(rank.roleId)) {
@@ -135,15 +130,6 @@ function getCurrentRankLevel(member) {
     }
   }
   return 0;
-}
-
-function getCurrentRankName(member) {
-  for (const rank of sortedRanks) {
-    if (member.roles.cache.has(rank.roleId)) {
-      return rank.name;
-    }
-  }
-  return null;
 }
 
 async function removeAllGangRoles(member) {
@@ -848,8 +834,4 @@ async function handleAangenomen(interaction) {
 
 async function handleOntslagen(interaction) {
   const targetUser = interaction.options.getUser("user");
-  const reason = interaction.options.getString("reason");
-  const executor = interaction.member;
-
-  if (!hasAdminRole(executor)) {
-   
+  const
