@@ -318,10 +318,6 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
 // 🤖 DISCORD CLIENT SETUP
 // ========================================
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
-});
-
 let messageId = null;
 
 async function buildEmbed() {
@@ -854,4 +850,4 @@ async function handleOntslagen(interaction) {
   } catch (error) {
     console.error("Ontslagen error:", error);
     if (!interaction.replied) {
-      await interaction.reply({ content: `
+      await interaction.reply({ content: `❌ Er ging iets mis: ${error
