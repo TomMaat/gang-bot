@@ -30,14 +30,17 @@ const WARN_CHANNEL_ID = "1475784747392172178";
 const PROMO_CHANNEL_ID = "1478540121555996836";
 const DEMOTE_CHANNEL_ID = "1502446924702290053";
 const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
+const AANGENOMEN_CHANNEL_ID = "1499166962973151372"; // Channel for /aangenomen
+const ONTSLAGEN_CHANNEL_ID = "1499167137334558790"; // Channel for /ontslagen
 
-// Placeholder image URL (Discord's default missing image)
-const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/embed/avatars/0.png";
-
-// Role IDs for admin commands
+// Role IDs
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
+const LID_ROLE_ID = "1475784707844341780"; // "Lid" role that everyone gets
+
+// Placeholder image URL
+const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/embed/avatars/0.png";
 
 // Ranks from highest to lowest
 const ranks = [
@@ -88,7 +91,6 @@ function getFullDate() {
 
 // Date validation function for DD/MM/YYYY format
 function isValidDate(dateString) {
-  // Check if format is DD/MM/YYYY
   const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
   if (!regex.test(dateString)) return false;
   
@@ -97,12 +99,10 @@ function isValidDate(dateString) {
   const month = parseInt(parts[1], 10);
   const year = parseInt(parts[2], 10);
   
-  // Check if date is valid
   if (year < 2000 || year > 2100) return false;
   if (month < 1 || month > 12) return false;
   if (day < 1 || day > 31) return false;
   
-  // Check days in month
   const daysInMonth = new Date(year, month, 0).getDate();
   if (day > daysInMonth) return false;
   
@@ -123,6 +123,11 @@ function getRankNameByLevel(level) {
   return rank ? rank.name : null;
 }
 
+function getRoleIdByName(rankName) {
+  const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
+  return rank ? rank.roleId : null;
+}
+
 function getCurrentRankLevel(member) {
   for (const rank of sortedRanks) {
     if (member.roles.cache.has(rank.roleId)) {
@@ -132,11 +137,32 @@ function getCurrentRankLevel(member) {
   return 0;
 }
 
+function getCurrentRankName(member) {
+  for (const rank of sortedRanks) {
+    if (member.roles.cache.has(rank.roleId)) {
+      return rank.name;
+    }
+  }
+  return null;
+}
+
 async function removeAllGangRoles(member) {
   const gangRoleIds = ranks.map(r => r.roleId);
   const rolesToRemove = member.roles.cache.filter(role => gangRoleIds.includes(role.id));
   if (rolesToRemove.size > 0) {
     await member.roles.remove(rolesToRemove);
+  }
+}
+
+async function removeLidRole(member) {
+  if (member.roles.cache.has(LID_ROLE_ID)) {
+    await member.roles.remove(LID_ROLE_ID);
+  }
+}
+
+async function addLidRole(member) {
+  if (!member.roles.cache.has(LID_ROLE_ID)) {
+    await member.roles.add(LID_ROLE_ID);
   }
 }
 
@@ -208,6 +234,69 @@ async function sendWarnEmbed(user, warnLevel, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: true }
     )
     .setColor(0xFFA500)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendRemoveWarnEmbed(user, warnLevel, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("✅ WAARSCHUWING INGETROKKEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "⚠️ Niveau", value: warnLevel, inline: true },
+      { name: "📝 Reden ingetrokken", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+    )
+    .setColor(0x00A5FF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendAangenomenEmbed(guild, user, rank, reason) {
+  const channel = await client.channels.fetch(AANGENOMEN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("✅ AANGENOMEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "🎯 Rang", value: rank, inline: true },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+    )
+    .setColor(0x00FF00)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(getServerIcon(guild));
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendOntslagenEmbed(user, reason) {
+  const channel = await client.channels.fetch(ONTSLAGEN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("❌ ONTSLAGEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+    )
+    .setColor(0xFF0000)
     .setFooter({ text: "MK-13 Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
@@ -407,6 +496,52 @@ async function registerCommands() {
           .setRequired(true)),
     
     new SlashCommandBuilder()
+      .setName("removewarn")
+      .setDescription("Trek een waarschuwing in van een lid")
+      .addIntegerOption(option =>
+        option.setName("number")
+          .setDescription("1 = 1e waarschuwing, 2 = 2e waarschuwing")
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(2))
+      .addUserOption(option =>
+        option.setName("user")
+          .setDescription("Het lid waarvan de waarschuwing wordt ingetrokken")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden voor intrekken")
+          .setRequired(true)),
+    
+    new SlashCommandBuilder()
+      .setName("aangenomen")
+      .setDescription("Neem een nieuw lid aan met een specifieke rang")
+      .addUserOption(option =>
+        option.setName("user")
+          .setDescription("Het lid dat wordt aangenomen")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("rank")
+          .setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden voor aanname")
+          .setRequired(true)),
+    
+    new SlashCommandBuilder()
+      .setName("ontslagen")
+      .setDescription("Ontsla een lid uit de gang")
+      .addUserOption(option =>
+        option.setName("user")
+          .setDescription("Het lid dat ontslagen wordt")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden voor ontslag")
+          .setRequired(true)),
+    
+    new SlashCommandBuilder()
       .setName("afwezigheid")
       .setDescription("Meld je afwezigheid (DD/MM/YYYY formaat)")
       .addStringOption(option =>
@@ -600,136 +735,121 @@ async function handleWarn(interaction) {
   }
 }
 
-// FIXED: /afwezigheid command handler with date validation
-async function handleAfwezigheid(interaction) {
-  // Defer reply immediately to prevent timeout
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+async function handleRemoveWarn(interaction) {
+  const number = interaction.options.getInteger("number");
+  const targetUser = interaction.options.getUser("user");
+  const reason = interaction.options.getString("reason");
+  const executor = interaction.member;
+
+  if (!hasAdminRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  let warnRoleId = null;
+  let warnLevel = "";
   
+  if (number === 1) {
+    warnRoleId = WARN_ROLE_LEVEL1;
+    warnLevel = "1e Waarschuwing";
+  } else if (number === 2) {
+    warnRoleId = WARN_ROLE_LEVEL2;
+    warnLevel = "2e Waarschuwing";
+  } else {
+    await interaction.reply({ content: "❌ Nummer moet 1 of 2 zijn!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const warnRole = interaction.guild.roles.cache.get(warnRoleId);
+  if (!warnRole) {
+    await interaction.reply({ content: `❌ Waarschuwingsrol niet gevonden!`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (!targetMember.roles.cache.has(warnRoleId)) {
+    await interaction.reply({ content: `❌ ${targetUser.username} heeft geen ${warnLevel}!`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   try {
-    const reason = interaction.options.getString("reason");
-    const fromDate = interaction.options.getString("from");
-    const tilDate = interaction.options.getString("til");
-    const member = interaction.member;
-
-    // VALIDATE FROM DATE FORMAT (DD/MM/YYYY)
-    if (!isValidDate(fromDate)) {
-      await interaction.editReply({ 
-        content: "❌ **Ongeldig datumformaat!**\n\nGebruik het formaat: **DD/MM/YYYY**\n\n📅 Voorbeeld: `27/04/2026`\n\n⚠️ Let op: Gebruik **2 cijfers** voor dag en maand!" 
-      });
-      return;
-    }
-
-    // VALIDATE TIL DATE FORMAT (DD/MM/YYYY or ??)
-    if (tilDate !== "??" && tilDate !== "Onbekend" && !isValidDate(tilDate)) {
-      await interaction.editReply({ 
-        content: "❌ **Ongeldig datumformaat!**\n\nGebruik het formaat: **DD/MM/YYYY** of **??**\n\n📅 Voorbeelden: `30/04/2026` of `??`\n\n⚠️ Let op: Gebruik **2 cijfers** voor dag en maand!" 
-      });
-      return;
-    }
-
-    // Send the embed to the channel
-    await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
-    
-    // Edit the deferred reply
-    await interaction.editReply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!\n\n📅 Van: **${fromDate}**\n📅 Tot: **${tilDate === "??" ? "Onbekend" : tilDate}**\n📝 Reden: **${reason}**` });
+    await targetMember.roles.remove(warnRole);
+    await interaction.reply({ content: `✅ ${targetUser.username} zijn ${warnLevel} is ingetrokken!` });
+    await sendRemoveWarnEmbed(targetMember, warnLevel, reason);
   } catch (error) {
-    console.error("Afwezigheid error:", error);
+    console.error("RemoveWarn error:", error);
     if (!interaction.replied) {
-      await interaction.editReply({ content: `❌ Er ging iets mis: ${error.message}` });
+      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
     }
   }
 }
 
-async function handleRefresh(interaction) {
-  const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
-  await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : 0 });
+async function handleAangenomen(interaction) {
+  const targetUser = interaction.options.getUser("user");
+  const rankName = interaction.options.getString("rank");
+  const reason = interaction.options.getString("reason");
+  const executor = interaction.member;
+  const guild = interaction.guild;
+
+  if (!hasAdminRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  // Find the rank
+  const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
+  if (!rank) {
+    const validRanks = ranks.map(r => r.name).join(", ");
+    await interaction.reply({ content: `❌ Ongeldige rang! Gebruik een van: ${validRanks}`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const roleToAdd = interaction.guild.roles.cache.get(rank.roleId);
+  if (!roleToAdd) {
+    await interaction.reply({ content: `❌ Rol voor ${rank.name} niet gevonden!`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const lidRole = interaction.guild.roles.cache.get(LID_ROLE_ID);
+  if (!lidRole) {
+    await interaction.reply({ content: `❌ Lid rol niet gevonden!`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   try {
-    await updateList();
-    await interaction.editReply("✅ Ledenlijst bijgewerkt.");
-  } catch (err) {
-    console.error("Refresh command failed:", err);
-    await interaction.editReply(`❌ Bijwerken mislukt: ${err.message}`);
+    // Remove any existing gang roles first
+    await removeAllGangRoles(targetMember);
+    // Add the selected rank role
+    await targetMember.roles.add(roleToAdd);
+    // Add the "Lid" role
+    await targetMember.roles.add(lidRole);
+    
+    await interaction.reply({ content: `✅ ${targetUser.username} is aangenomen als ${rank.name}!` });
+    await sendAangenomenEmbed(guild, targetMember, rank.name, reason);
+    await safeUpdateList();
+  } catch (error) {
+    console.error("Aangenomen error:", error);
+    if (!interaction.replied) {
+      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
+    }
   }
 }
 
-// ========================================
-// 🔄 EVENT HANDLERS
-// ========================================
+async function handleOntslagen(interaction) {
+  const targetUser = interaction.options.getUser("user");
+  const reason = interaction.options.getString("reason");
+  const executor = interaction.member;
 
-const watchedRoleIds = new Set(ranks.map((r) => r.roleId));
-let pendingUpdate = null;
-
-function scheduleUpdate() {
-  if (pendingUpdate) return;
-  pendingUpdate = setTimeout(() => {
-    pendingUpdate = null;
-    safeUpdateList();
-  }, ROLE_CHANGE_DEBOUNCE_MS);
-}
-
-client.once("ready", async () => {
-  console.log(`✅ Bot online als ${client.user?.tag}`);
-  try {
-    const guild = client.guilds.cache.first();
-    if (guild) {
-      await guild.members.fetch();
-      console.log(`✅ ${guild.members.cache.size} leden geladen`);
-    }
-  } catch (err) {
-    console.error("Failed to prefetch members:", err);
-  }
-  registerCommands();
-  safeUpdateList();
-});
-
-client.on("guildMemberUpdate", (oldMember, newMember) => {
-  const oldRoles = new Set(oldMember.roles.cache.keys());
-  const newRoles = new Set(newMember.roles.cache.keys());
-  
-  let changed = false;
-  for (const id of oldRoles) if (!newRoles.has(id)) changed = true;
-  for (const id of newRoles) if (!oldRoles.has(id)) changed = true;
-  
-  if (!changed) return;
-  
-  let touchesGangRole = false;
-  for (const id of watchedRoleIds) {
-    if (oldRoles.has(id) !== newRoles.has(id)) {
-      touchesGangRole = true;
-      break;
-    }
-  }
-  
-  if (touchesGangRole) scheduleUpdate();
-});
-
-client.on("guildMemberRemove", (member) => {
-  const hasGangRole = [...member.roles.cache.keys()].some((id) => watchedRoleIds.has(id));
-  if (hasGangRole) scheduleUpdate();
-});
-
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  
-  if (interaction.commandName === "refresh") {
-    await handleRefresh(interaction);
-  } else if (interaction.commandName === "promo") {
-    await handlePromote(interaction);
-  } else if (interaction.commandName === "demote") {
-    await handleDemote(interaction);
-  } else if (interaction.commandName === "warn") {
-    await handleWarn(interaction);
-  } else if (interaction.commandName === "afwezigheid") {
-    await handleAfwezigheid(interaction);
-  }
-});
-
-process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled rejection:", reason);
-});
-
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception:", err);
-});
-
-client.login(TOKEN);
+  if (!hasAdminRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemer
