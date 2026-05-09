@@ -71,11 +71,10 @@ function memberLink(id, _name) {
 
 function getCurrentDate() {
   const date = new Date();
-  return date.toLocaleDateString('nl-NL', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).replace(/\//g, '/');
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function getFullDate() {
@@ -85,6 +84,29 @@ function getFullDate() {
     month: 'long',
     day: 'numeric'
   });
+}
+
+// Date validation function for DD/MM/YYYY format
+function isValidDate(dateString) {
+  // Check if format is DD/MM/YYYY
+  const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  if (!regex.test(dateString)) return false;
+  
+  const parts = dateString.split('/');
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  
+  // Check if date is valid
+  if (year < 2000 || year > 2100) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+  
+  // Check days in month
+  const daysInMonth = new Date(year, month, 0).getDate();
+  if (day > daysInMonth) return false;
+  
+  return true;
 }
 
 function hasAdminRole(member) {
@@ -119,7 +141,7 @@ async function removeAllGangRoles(member) {
 }
 
 // ========================================
-// 📨 EMBED FUNCTIONS
+// 📨 EMBED FUNCTIONS WITH EMOJIS
 // ========================================
 
 function getServerIcon(guild) {
@@ -134,13 +156,13 @@ async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
   if (!channel || !channel.isTextBased()) return;
 
   const embed = new EmbedBuilder()
-    .setTitle("PROMOTIE")
+    .setTitle("🎉 PROMOTIE")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "Van", value: oldRank, inline: true },
-      { name: "Naar", value: newRank, inline: true },
-      { name: "Reden", value: reason, inline: false },
-      { name: "Datum", value: getCurrentDate(), inline: true }
+      { name: "📈 Van", value: oldRank, inline: true },
+      { name: "🎯 Naar", value: newRank, inline: true },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
     )
     .setColor(0x00FF00)
     .setFooter({ text: "MK-13 Bot" })
@@ -155,13 +177,13 @@ async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
   if (!channel || !channel.isTextBased()) return;
 
   const embed = new EmbedBuilder()
-    .setTitle("DEMOTIE")
+    .setTitle("📉 DEMOTIE")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "Van", value: oldRank, inline: true },
-      { name: "Naar", value: newRank, inline: true },
-      { name: "Reden", value: reason, inline: false },
-      { name: "Datum", value: getCurrentDate(), inline: true }
+      { name: "📉 Van", value: oldRank, inline: true },
+      { name: "⬇️ Naar", value: newRank, inline: true },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
     )
     .setColor(0xFF0000)
     .setFooter({ text: "MK-13 Bot" })
@@ -178,12 +200,12 @@ async function sendWarnEmbed(user, warnLevel, reason) {
   const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
 
   const embed = new EmbedBuilder()
-    .setTitle("WAARSCHUWING")
+    .setTitle("⚠️ WAARSCHUWING")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "Niveau", value: warnLevel, inline: true },
-      { name: "Reden", value: reason, inline: false },
-      { name: "Datum", value: getCurrentDate(), inline: true }
+      { name: "⚠️ Niveau", value: warnLevel, inline: true },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: true }
     )
     .setColor(0xFFA500)
     .setFooter({ text: "MK-13 Bot" })
@@ -201,13 +223,13 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
   const tilText = tilDate === "??" || tilDate === "Onbekend" || !tilDate ? "??" : tilDate;
 
   const embed = new EmbedBuilder()
-    .setTitle("AFWEZIGHEID")
+    .setTitle("📋 AFWEZIGHEID")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "Reden", value: reason, inline: false },
-      { name: "Van", value: fromDate, inline: true },
-      { name: "Tot", value: tilText, inline: true },
-      { name: "Gemeld op", value: getFullDate(), inline: false }
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Vanaf", value: fromDate, inline: true },
+      { name: "📅 Tot", value: tilText, inline: true },
+      { name: "📅 Gemeld op", value: getFullDate(), inline: false }
     )
     .setColor(0x00A5FF)
     .setFooter({ text: "MK-13 Bot" })
@@ -386,18 +408,18 @@ async function registerCommands() {
     
     new SlashCommandBuilder()
       .setName("afwezigheid")
-      .setDescription("Meld je afwezigheid (iedereen kan dit gebruiken)")
+      .setDescription("Meld je afwezigheid (DD/MM/YYYY formaat)")
       .addStringOption(option =>
         option.setName("reason")
           .setDescription("Reden van afwezigheid")
           .setRequired(true))
       .addStringOption(option =>
         option.setName("from")
-          .setDescription("Vanaf welke datum (bijv. 27/04/2026)")
+          .setDescription("Vanaf welke datum (DD/MM/YYYY, bijv. 27/04/2026)")
           .setRequired(true))
       .addStringOption(option =>
         option.setName("til")
-          .setDescription("Tot welke datum (bijv. 30/04/2026 of ??)")
+          .setDescription("Tot welke datum (DD/MM/YYYY of ??)")
           .setRequired(true)),
   ].map(cmd => cmd.toJSON());
 
@@ -416,7 +438,7 @@ async function registerCommands() {
 }
 
 // ========================================
-// 🎮 COMMAND HANDLERS (ALL FIXED)
+// 🎮 COMMAND HANDLERS
 // ========================================
 
 async function handlePromote(interaction) {
@@ -578,7 +600,7 @@ async function handleWarn(interaction) {
   }
 }
 
-// FIXED: /afwezigheid command handler
+// FIXED: /afwezigheid command handler with date validation
 async function handleAfwezigheid(interaction) {
   // Defer reply immediately to prevent timeout
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -589,17 +611,31 @@ async function handleAfwezigheid(interaction) {
     const tilDate = interaction.options.getString("til");
     const member = interaction.member;
 
+    // VALIDATE FROM DATE FORMAT (DD/MM/YYYY)
+    if (!isValidDate(fromDate)) {
+      await interaction.editReply({ 
+        content: "❌ **Ongeldig datumformaat!**\n\nGebruik het formaat: **DD/MM/YYYY**\n\n📅 Voorbeeld: `27/04/2026`\n\n⚠️ Let op: Gebruik **2 cijfers** voor dag en maand!" 
+      });
+      return;
+    }
+
+    // VALIDATE TIL DATE FORMAT (DD/MM/YYYY or ??)
+    if (tilDate !== "??" && tilDate !== "Onbekend" && !isValidDate(tilDate)) {
+      await interaction.editReply({ 
+        content: "❌ **Ongeldig datumformaat!**\n\nGebruik het formaat: **DD/MM/YYYY** of **??**\n\n📅 Voorbeelden: `30/04/2026` of `??`\n\n⚠️ Let op: Gebruik **2 cijfers** voor dag en maand!" 
+      });
+      return;
+    }
+
     // Send the embed to the channel
     await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
     
     // Edit the deferred reply
-    await interaction.editReply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!` });
+    await interaction.editReply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!\n\n📅 Van: **${fromDate}**\n📅 Tot: **${tilDate === "??" ? "Onbekend" : tilDate}**\n📝 Reden: **${reason}**` });
   } catch (error) {
     console.error("Afwezigheid error:", error);
     if (!interaction.replied) {
       await interaction.editReply({ content: `❌ Er ging iets mis: ${error.message}` });
-    } else if (!interaction.deferred) {
-      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
     }
   }
 }
