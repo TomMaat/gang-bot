@@ -33,7 +33,7 @@ const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
 const AANGENOMEN_CHANNEL_ID = "1499166962973151372";
 const ONTSLAGEN_CHANNEL_ID = "1499167137334558790";
 
-// Role IDs
+// Role IDs for admin commands
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
@@ -123,6 +123,11 @@ function getRankNameByLevel(level) {
   return rank ? rank.name : null;
 }
 
+function getRoleIdByName(rankName) {
+  const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
+  return rank ? rank.roleId : null;
+}
+
 function getCurrentRankLevel(member) {
   for (const rank of sortedRanks) {
     if (member.roles.cache.has(rank.roleId)) {
@@ -153,7 +158,7 @@ async function addLidRole(member) {
 }
 
 // ========================================
-// 📨 EMBED FUNCTIONS WITH EMOJIS
+// 📨 EMBED FUNCTIONS
 // ========================================
 
 function getServerIcon(guild) {
@@ -559,7 +564,7 @@ async function registerCommands() {
 }
 
 // ========================================
-// 🎮 COMMAND HANDLERS
+// 🎮 COMMAND HANDLERS (EXISTING ONES - UNCHANGED)
 // ========================================
 
 async function handlePromote(interaction) {
@@ -721,6 +726,10 @@ async function handleWarn(interaction) {
   }
 }
 
+// ========================================
+// 🆕 NEW COMMAND: /removewarn
+// ========================================
+
 async function handleRemoveWarn(interaction) {
   const number = interaction.options.getInteger("number");
   const targetUser = interaction.options.getUser("user");
@@ -774,6 +783,10 @@ async function handleRemoveWarn(interaction) {
     }
   }
 }
+
+// ========================================
+// 🆕 NEW COMMAND: /aangenomen
+// ========================================
 
 async function handleAangenomen(interaction) {
   const targetUser = interaction.options.getUser("user");
@@ -832,5 +845,14 @@ async function handleAangenomen(interaction) {
   }
 }
 
+// ========================================
+// 🆕 NEW COMMAND: /ontslagen
+// ========================================
+
 async function handleOntslagen(interaction) {
-  const targetUser = interaction.options.getUser("
+  const targetUser = interaction.options.getUser("user");
+  const reason = interaction.options.getString("reason");
+  const executor = interaction.member;
+
+  if (!hasAdminRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags
