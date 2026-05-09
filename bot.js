@@ -39,7 +39,7 @@ const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
 
-// Ranks from highest to lowest (emoji only used in list, not in embeds)
+// Ranks from highest to lowest
 const ranks = [
   { name: "Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541", level: 10, emoji: "👑" },
   { name: "Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999", level: 9, emoji: "🧠" },
@@ -73,8 +73,8 @@ function getCurrentDate() {
   const date = new Date();
   return date.toLocaleDateString('nl-NL', {
     year: 'numeric',
-    month: 'numeric',
-    day: 'numeric'
+    month: '2-digit',
+    day: '2-digit'
   }).replace(/\//g, '/');
 }
 
@@ -119,10 +119,9 @@ async function removeAllGangRoles(member) {
 }
 
 // ========================================
-// 📨 EMBED FUNCTIONS WITH REQUESTED DESIGN
+// 📨 EMBED FUNCTIONS
 // ========================================
 
-// Get server icon URL (returns placeholder if none)
 function getServerIcon(guild) {
   if (guild && guild.iconURL()) {
     return guild.iconURL({ size: 1024 });
@@ -132,10 +131,7 @@ function getServerIcon(guild) {
 
 async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
   const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
-  if (!channel || !channel.isTextBased()) {
-    console.error(`Cannot send embed: Channel ${PROMO_CHANNEL_ID} not found`);
-    return;
-  }
+  if (!channel || !channel.isTextBased()) return;
 
   const embed = new EmbedBuilder()
     .setTitle("PROMOTIE")
@@ -156,10 +152,7 @@ async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
 
 async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
   const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
-  if (!channel || !channel.isTextBased()) {
-    console.error(`Cannot send embed: Channel ${DEMOTE_CHANNEL_ID} not found`);
-    return;
-  }
+  if (!channel || !channel.isTextBased()) return;
 
   const embed = new EmbedBuilder()
     .setTitle("DEMOTIE")
@@ -180,10 +173,7 @@ async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
 
 async function sendWarnEmbed(user, warnLevel, reason) {
   const channel = await client.channels.fetch(WARN_CHANNEL_ID);
-  if (!channel || !channel.isTextBased()) {
-    console.error(`Cannot send embed: Channel ${WARN_CHANNEL_ID} not found`);
-    return;
-  }
+  if (!channel || !channel.isTextBased()) return;
 
   const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
 
@@ -205,13 +195,10 @@ async function sendWarnEmbed(user, warnLevel, reason) {
 
 async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
   const channel = await client.channels.fetch(AFWEZIGHEID_CHANNEL_ID);
-  if (!channel || !channel.isTextBased()) {
-    console.error(`Cannot send embed: Channel ${AFWEZIGHEID_CHANNEL_ID} not found`);
-    return;
-  }
+  if (!channel || !channel.isTextBased()) return;
 
   const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
-  const tilText = tilDate === "??" || tilDate === "Onbekend" ? "??" : tilDate;
+  const tilText = tilDate === "??" || tilDate === "Onbekend" || !tilDate ? "??" : tilDate;
 
   const embed = new EmbedBuilder()
     .setTitle("AFWEZIGHEID")
@@ -239,7 +226,6 @@ const client = new Client({
 });
 
 let messageId = null;
-let currentGuild = null;
 
 async function buildEmbed() {
   const guild = client.guilds.cache.first();
@@ -247,7 +233,6 @@ async function buildEmbed() {
     console.warn("Bot is not in any guild yet.");
     return null;
   }
-  currentGuild = guild;
 
   let body = "";
   const uniqueMembers = new Set();
@@ -431,7 +416,7 @@ async function registerCommands() {
 }
 
 // ========================================
-// 🎮 COMMAND HANDLERS
+// 🎮 COMMAND HANDLERS (ALL FIXED)
 // ========================================
 
 async function handlePromote(interaction) {
@@ -593,18 +578,27 @@ async function handleWarn(interaction) {
   }
 }
 
+// FIXED: /afwezigheid command handler
 async function handleAfwezigheid(interaction) {
-  const reason = interaction.options.getString("reason");
-  const fromDate = interaction.options.getString("from");
-  const tilDate = interaction.options.getString("til");
-  const member = interaction.member;
-
+  // Defer reply immediately to prevent timeout
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  
   try {
-    await interaction.reply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!`, flags: MessageFlags.Ephemeral });
+    const reason = interaction.options.getString("reason");
+    const fromDate = interaction.options.getString("from");
+    const tilDate = interaction.options.getString("til");
+    const member = interaction.member;
+
+    // Send the embed to the channel
     await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
+    
+    // Edit the deferred reply
+    await interaction.editReply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!` });
   } catch (error) {
     console.error("Afwezigheid error:", error);
     if (!interaction.replied) {
+      await interaction.editReply({ content: `❌ Er ging iets mis: ${error.message}` });
+    } else if (!interaction.deferred) {
       await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
     }
   }
@@ -642,7 +636,6 @@ client.once("ready", async () => {
   try {
     const guild = client.guilds.cache.first();
     if (guild) {
-      currentGuild = guild;
       await guild.members.fetch();
       console.log(`✅ ${guild.members.cache.size} leden geladen`);
     }
