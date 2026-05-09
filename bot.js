@@ -123,11 +123,6 @@ function getRankNameByLevel(level) {
   return rank ? rank.name : null;
 }
 
-function getRoleIdByName(rankName) {
-  const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
-  return rank ? rank.roleId : null;
-}
-
 function getCurrentRankLevel(member) {
   for (const rank of sortedRanks) {
     if (member.roles.cache.has(rank.roleId)) {
@@ -564,7 +559,7 @@ async function registerCommands() {
 }
 
 // ========================================
-// 🎮 COMMAND HANDLERS (EXISTING ONES - UNCHANGED)
+// 🎮 COMMAND HANDLERS
 // ========================================
 
 async function handlePromote(interaction) {
@@ -726,10 +721,6 @@ async function handleWarn(interaction) {
   }
 }
 
-// ========================================
-// 🆕 NEW COMMAND: /removewarn
-// ========================================
-
 async function handleRemoveWarn(interaction) {
   const number = interaction.options.getInteger("number");
   const targetUser = interaction.options.getUser("user");
@@ -784,10 +775,6 @@ async function handleRemoveWarn(interaction) {
   }
 }
 
-// ========================================
-// 🆕 NEW COMMAND: /aangenomen
-// ========================================
-
 async function handleAangenomen(interaction) {
   const targetUser = interaction.options.getUser("user");
   const rankName = interaction.options.getString("rank");
@@ -800,7 +787,6 @@ async function handleAangenomen(interaction) {
     return;
   }
 
-  // Find the rank
   const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
   if (!rank) {
     const validRanks = ranks.map(r => r.name).join(", ");
@@ -827,11 +813,8 @@ async function handleAangenomen(interaction) {
   }
 
   try {
-    // Remove any existing gang roles first
     await removeAllGangRoles(targetMember);
-    // Add the selected rank role
     await targetMember.roles.add(roleToAdd);
-    // Add the "Lid" role
     await targetMember.roles.add(lidRole);
     
     await interaction.reply({ content: `✅ ${targetUser.username} is aangenomen als ${rank.name}!` });
@@ -845,14 +828,30 @@ async function handleAangenomen(interaction) {
   }
 }
 
-// ========================================
-// 🆕 NEW COMMAND: /ontslagen
-// ========================================
-
 async function handleOntslagen(interaction) {
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
 
   if (!hasAdminRole(executor)) {
-    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  try {
+    await removeAllGangRoles(targetMember);
+    await removeLidRole(targetMember);
+    
+    await interaction.reply({ content: `✅ ${targetUser.username} is ontslagen uit de gang!` });
+    await sendOntslagenEmbed(targetMember, reason);
+    await safeUpdateList();
+  } catch (error) {
+    console.error("Ontslagen error:", error);
+    if (!interaction.replied) {
+      await interaction.reply({ content: `❌ Er ging iets mis:
