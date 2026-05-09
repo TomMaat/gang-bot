@@ -30,14 +30,14 @@ const WARN_CHANNEL_ID = "1475784747392172178";
 const PROMO_CHANNEL_ID = "1478540121555996836";
 const DEMOTE_CHANNEL_ID = "1502446924702290053";
 const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
-const AANGENOMEN_CHANNEL_ID = "1499166962973151372"; // Channel for /aangenomen
-const ONTSLAGEN_CHANNEL_ID = "1499167137334558790"; // Channel for /ontslagen
+const AANGENOMEN_CHANNEL_ID = "1499166962973151372";
+const ONTSLAGEN_CHANNEL_ID = "1499167137334558790";
 
 // Role IDs
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
-const LID_ROLE_ID = "1475784707844341780"; // "Lid" role that everyone gets
+const LID_ROLE_ID = "1475784707844341780";
 
 // Placeholder image URL
 const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/embed/avatars/0.png";
@@ -852,4 +852,4 @@ async function handleOntslagen(interaction) {
   const executor = interaction.member;
 
   if (!hasAdminRole(executor)) {
-    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemer
+   
