@@ -434,7 +434,9 @@ async function handleAangenomen(interaction) {
     await interaction.reply({ content: `✅ ${targetUser.username} is aangenomen als ${rank.name}!` });
     const channel = await client.channels.fetch(AANGENOMEN_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("AANGENOMEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Rang", value: rank.name, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
+      // Profielfoto van de aangenomen gebruiker ipv logo
+      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
+      const embed = new EmbedBuilder().setTitle("AANGENOMEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Rang", value: rank.name, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
       await channel.send({ embeds: [embed] });
     }
     await safeUpdateList();
