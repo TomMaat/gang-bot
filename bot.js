@@ -92,8 +92,7 @@ function isValidDate(dateString) {
   if (month < 1 || month > 12) return false;
   if (day < 1 || day > 31) return false;
   const daysInMonth = new Date(year, month, 0).getDate();
-  if (day > daysInMonth) return false;
-  return true;
+  return day <= daysInMonth;
 }
 
 function hasAdminRole(member) {
@@ -202,13 +201,13 @@ async function safeUpdateList() {
 async function registerCommands() {
   const commands = [
     new SlashCommandBuilder().setName("refresh").setDescription("Refresh de gang ledenlijst nu").addBooleanOption((option) => option.setName("ephemeral").setDescription("Toon alleen aan jou").setRequired(false)),
-    new SlashCommandBuilder().setName("promo").setDescription("Promoveer een lid (1=+1 rank, 2=+2 ranks, etc.)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omhoog (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gepromoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor promotie").setRequired(true)),
-    new SlashCommandBuilder().setName("demote").setDescription("Demoveer een lid (1=-1 rank, 2=-2 ranks, etc.)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omlaag (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gedemoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor demotie").setRequired(true)),
-    new SlashCommandBuilder().setName("warn").setDescription("Geef een waarschuwing aan een lid").addIntegerOption(option => option.setName("number").setDescription("1 = 1e waarschuwing, 2 = 2e waarschuwing").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid dat gewaarschuwd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor waarschuwing").setRequired(true)),
-    new SlashCommandBuilder().setName("removewarn").setDescription("Trek een waarschuwing in van een lid").addIntegerOption(option => option.setName("number").setDescription("1 = 1e waarschuwing, 2 = 2e waarschuwing").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid waarvan de waarschuwing wordt ingetrokken").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor intrekken").setRequired(true)),
-    new SlashCommandBuilder().setName("aangenomen").setDescription("Neem een nieuw lid aan met een specifieke rang").addUserOption(option => option.setName("user").setDescription("Het lid dat wordt aangenomen").setRequired(true)).addStringOption(option => option.setName("rank").setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor aanname").setRequired(true)),
-    new SlashCommandBuilder().setName("ontslagen").setDescription("Ontsla een lid uit de gang").addUserOption(option => option.setName("user").setDescription("Het lid dat ontslagen wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor ontslag").setRequired(true)),
-    new SlashCommandBuilder().setName("afwezigheid").setDescription("Meld je afwezigheid (DD/MM/YYYY formaat)").addStringOption(option => option.setName("reason").setDescription("Reden van afwezigheid").setRequired(true)).addStringOption(option => option.setName("from").setDescription("Vanaf welke datum (DD/MM/YYYY, bijv. 27/04/2026)").setRequired(true)).addStringOption(option => option.setName("til").setDescription("Tot welke datum (DD/MM/YYYY of ??)").setRequired(true)),
+    new SlashCommandBuilder().setName("promo").setDescription("Promoveer een lid (1=+1 rank)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omhoog (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gepromoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor promotie").setRequired(true)),
+    new SlashCommandBuilder().setName("demote").setDescription("Demoveer een lid (1=-1 rank)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omlaag (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gedemoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor demotie").setRequired(true)),
+    new SlashCommandBuilder().setName("warn").setDescription("Geef een waarschuwing aan een lid").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid dat gewaarschuwd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor waarschuwing").setRequired(true)),
+    new SlashCommandBuilder().setName("removewarn").setDescription("Trek een waarschuwing in").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid waarvan de waarschuwing wordt ingetrokken").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor intrekken").setRequired(true)),
+    new SlashCommandBuilder().setName("aangenomen").setDescription("Neem een nieuw lid aan").addUserOption(option => option.setName("user").setDescription("Het lid dat wordt aangenomen").setRequired(true)).addStringOption(option => option.setName("rank").setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor aanname").setRequired(true)),
+    new SlashCommandBuilder().setName("ontslagen").setDescription("Ontsla een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat ontslagen wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor ontslag").setRequired(true)),
+    new SlashCommandBuilder().setName("afwezigheid").setDescription("Meld je afwezigheid (DD/MM/YYYY)").addStringOption(option => option.setName("reason").setDescription("Reden van afwezigheid").setRequired(true)).addStringOption(option => option.setName("from").setDescription("Vanaf (DD/MM/YYYY)").setRequired(true)).addStringOption(option => option.setName("til").setDescription("Tot (DD/MM/YYYY of ??)").setRequired(true)),
   ].map(cmd => cmd.toJSON());
 
   try {
@@ -265,15 +264,13 @@ async function handlePromote(interaction) {
     await interaction.reply({ content: `✅ ${targetUser.username} is gepromoveerd van ${oldRankName} naar ${newRankName} (+${steps})!` });
     const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("🎉 PROMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "📈 Van", value: oldRankName, inline: true }, { name: "🎯 Naar", value: newRankName, inline: true }, { name: "📝 Reden", value: reason, inline: false }, { name: "📅 Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
+      const embed = new EmbedBuilder().setTitle("PROMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Van", value: oldRankName, inline: true }, { name: "Naar", value: newRankName, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
       await channel.send({ embeds: [embed] });
     }
     await safeUpdateList();
   } catch (error) {
     console.error("Promote error:", error);
-    if (!interaction.replied) {
-      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
-    }
+    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -317,15 +314,13 @@ async function handleDemote(interaction) {
     await interaction.reply({ content: `✅ ${targetUser.username} is gedemoveerd van ${oldRankName} naar ${newRankName} (-${steps})!` });
     const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("📉 DEMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "📉 Van", value: oldRankName, inline: true }, { name: "⬇️ Naar", value: newRankName, inline: true }, { name: "📝 Reden", value: reason, inline: false }, { name: "📅 Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
+      const embed = new EmbedBuilder().setTitle("DEMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Van", value: oldRankName, inline: true }, { name: "Naar", value: newRankName, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
       await channel.send({ embeds: [embed] });
     }
     await safeUpdateList();
   } catch (error) {
     console.error("Demote error:", error);
-    if (!interaction.replied) {
-      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
-    }
+    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -343,18 +338,8 @@ async function handleWarn(interaction) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
     return;
   }
-  let warnRoleId = null;
-  let warnLevel = "";
-  if (number === 1) {
-    warnRoleId = WARN_ROLE_LEVEL1;
-    warnLevel = "1e Waarschuwing";
-  } else if (number === 2) {
-    warnRoleId = WARN_ROLE_LEVEL2;
-    warnLevel = "2e Waarschuwing";
-  } else {
-    await interaction.reply({ content: "❌ Nummer moet 1 of 2 zijn!", flags: MessageFlags.Ephemeral });
-    return;
-  }
+  const warnRoleId = number === 1 ? WARN_ROLE_LEVEL1 : WARN_ROLE_LEVEL2;
+  const warnLevel = number === 1 ? "1e Waarschuwing" : "2e Waarschuwing";
   const warnRole = interaction.guild.roles.cache.get(warnRoleId);
   if (!warnRole) {
     await interaction.reply({ content: `❌ Waarschuwingsrol niet gevonden!`, flags: MessageFlags.Ephemeral });
@@ -366,14 +351,12 @@ async function handleWarn(interaction) {
     const channel = await client.channels.fetch(WARN_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
       const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("⚠️ WAARSCHUWING").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "⚠️ Niveau", value: warnLevel, inline: true }, { name: "📝 Reden", value: reason, inline: false }, { name: "📅 Datum", value: getCurrentDate(), inline: true }).setColor(0xFFA500).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
+      const embed = new EmbedBuilder().setTitle("WAARSCHUWING").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Niveau", value: warnLevel, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFFA500).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
       await channel.send({ embeds: [embed] });
     }
   } catch (error) {
     console.error("Warn error:", error);
-    if (!interaction.replied) {
-      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
-    }
+    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -391,18 +374,8 @@ async function handleRemoveWarn(interaction) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
     return;
   }
-  let warnRoleId = null;
-  let warnLevel = "";
-  if (number === 1) {
-    warnRoleId = WARN_ROLE_LEVEL1;
-    warnLevel = "1e Waarschuwing";
-  } else if (number === 2) {
-    warnRoleId = WARN_ROLE_LEVEL2;
-    warnLevel = "2e Waarschuwing";
-  } else {
-    await interaction.reply({ content: "❌ Nummer moet 1 of 2 zijn!", flags: MessageFlags.Ephemeral });
-    return;
-  }
+  const warnRoleId = number === 1 ? WARN_ROLE_LEVEL1 : WARN_ROLE_LEVEL2;
+  const warnLevel = number === 1 ? "1e Waarschuwing" : "2e Waarschuwing";
   const warnRole = interaction.guild.roles.cache.get(warnRoleId);
   if (!warnRole) {
     await interaction.reply({ content: `❌ Waarschuwingsrol niet gevonden!`, flags: MessageFlags.Ephemeral });
@@ -418,14 +391,12 @@ async function handleRemoveWarn(interaction) {
     const channel = await client.channels.fetch(WARN_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
       const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("✅ WAARSCHUWING INGETROKKEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "⚠️ Niveau", value: warnLevel, inline: true }, { name: "📝 Reden ingetrokken", value: reason, inline: false }, { name: "📅 Datum", value: getCurrentDate(), inline: true }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
+      const embed = new EmbedBuilder().setTitle("WAARSCHUWING INGETROKKEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Niveau", value: warnLevel, inline: true }, { name: "Reden ingetrokken", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
       await channel.send({ embeds: [embed] });
     }
   } catch (error) {
     console.error("RemoveWarn error:", error);
-    if (!interaction.replied) {
-      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
-    }
+    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -442,22 +413,18 @@ async function handleAangenomen(interaction) {
   const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
   if (!rank) {
     const validRanks = ranks.map(r => r.name).join(", ");
-    await interaction.reply({ content: `❌ Ongeldige rang! Gebruik een van: ${validRanks}`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `❌ Ongeldige rang! Gebruik: ${validRanks}`, flags: MessageFlags.Ephemeral });
     return;
   }
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
-    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden!", flags: MessageFlags.Ephemeral });
     return;
   }
   const roleToAdd = interaction.guild.roles.cache.get(rank.roleId);
-  if (!roleToAdd) {
-    await interaction.reply({ content: `❌ Rol voor ${rank.name} niet gevonden!`, flags: MessageFlags.Ephemeral });
-    return;
-  }
   const lidRole = interaction.guild.roles.cache.get(LID_ROLE_ID);
-  if (!lidRole) {
-    await interaction.reply({ content: `❌ Lid rol niet gevonden!`, flags: MessageFlags.Ephemeral });
+  if (!roleToAdd || !lidRole) {
+    await interaction.reply({ content: `❌ Rol niet gevonden!`, flags: MessageFlags.Ephemeral });
     return;
   }
   try {
@@ -467,15 +434,13 @@ async function handleAangenomen(interaction) {
     await interaction.reply({ content: `✅ ${targetUser.username} is aangenomen als ${rank.name}!` });
     const channel = await client.channels.fetch(AANGENOMEN_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("✅ AANGENOMEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "🎯 Rang", value: rank.name, inline: true }, { name: "📝 Reden", value: reason, inline: false }, { name: "📅 Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
+      const embed = new EmbedBuilder().setTitle("AANGENOMEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Rang", value: rank.name, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
       await channel.send({ embeds: [embed] });
     }
     await safeUpdateList();
   } catch (error) {
     console.error("Aangenomen error:", error);
-    if (!interaction.replied) {
-      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
-    }
+    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -489,25 +454,23 @@ async function handleOntslagen(interaction) {
   }
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
-    await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden!", flags: MessageFlags.Ephemeral });
     return;
   }
   try {
     await removeAllGangRoles(targetMember);
     await removeLidRole(targetMember);
-    await interaction.reply({ content: `✅ ${targetUser.username} is ontslagen uit de gang!` });
+    await interaction.reply({ content: `✅ ${targetUser.username} is ontslagen!` });
     const channel = await client.channels.fetch(ONTSLAGEN_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
       const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("❌ ONTSLAGEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "📝 Reden", value: reason, inline: false }, { name: "📅 Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
+      const embed = new EmbedBuilder().setTitle("ONTSLAGEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
       await channel.send({ embeds: [embed] });
     }
     await safeUpdateList();
   } catch (error) {
     console.error("Ontslagen error:", error);
-    if (!interaction.replied) {
-      await interaction.reply({ content: `❌ Er ging iets mis: ${error.message}`, flags: MessageFlags.Ephemeral });
-    }
+    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -519,26 +482,24 @@ async function handleAfwezigheid(interaction) {
     const tilDate = interaction.options.getString("til");
     const member = interaction.member;
     if (!isValidDate(fromDate)) {
-      await interaction.editReply({ content: "❌ **Ongeldig datumformaat!**\n\nGebruik: DD/MM/YYYY\nVoorbeeld: 27/04/2026" });
+      await interaction.editReply({ content: "❌ Ongeldig formaat! Gebruik DD/MM/YYYY" });
       return;
     }
     if (tilDate !== "??" && tilDate !== "Onbekend" && !isValidDate(tilDate)) {
-      await interaction.editReply({ content: "❌ **Ongeldig datumformaat!**\n\nGebruik: DD/MM/YYYY of ??" });
+      await interaction.editReply({ content: "❌ Ongeldig formaat! Gebruik DD/MM/YYYY of ??" });
       return;
     }
     const channel = await client.channels.fetch(AFWEZIGHEID_CHANNEL_ID);
     if (channel && channel.isTextBased()) {
       const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const tilText = tilDate === "??" || tilDate === "Onbekend" || !tilDate ? "??" : tilDate;
-      const embed = new EmbedBuilder().setTitle("📋 AFWEZIGHEID").setDescription(`${memberLink(member.id, member.displayName)}`).addFields({ name: "📝 Reden", value: reason, inline: false }, { name: "📅 Vanaf", value: fromDate, inline: true }, { name: "📅 Tot", value: tilText, inline: true }, { name: "📅 Gemeld op", value: getFullDate(), inline: false }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
+      const tilText = tilDate === "??" || tilDate === "Onbekend" ? "??" : tilDate;
+      const embed = new EmbedBuilder().setTitle("AFWEZIGHEID").setDescription(`${memberLink(member.id, member.displayName)}`).addFields({ name: "Reden", value: reason, inline: false }, { name: "Vanaf", value: fromDate, inline: true }, { name: "Tot", value: tilText, inline: true }, { name: "Gemeld op", value: getFullDate(), inline: false }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
       await channel.send({ embeds: [embed] });
     }
     await interaction.editReply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!` });
   } catch (error) {
     console.error("Afwezigheid error:", error);
-    if (!interaction.replied) {
-      await interaction.editReply({ content: `❌ Er ging iets mis: ${error.message}` });
-    }
+    if (!interaction.replied) await interaction.editReply({ content: `❌ ${error.message}` });
   }
 }
 
@@ -549,12 +510,11 @@ async function handleRefresh(interaction) {
     await updateList();
     await interaction.editReply("✅ Ledenlijst bijgewerkt.");
   } catch (err) {
-    console.error("Refresh command failed:", err);
-    await interaction.editReply(`❌ Bijwerken mislukt: ${err.message}`);
+    await interaction.editReply(`❌ ${err.message}`);
   }
 }
 
-const watchedRoleIds = new Set(ranks.map((r) => r.roleId));
+const watchedRoleIds = new Set(ranks.map(r => r.roleId));
 let pendingUpdate = null;
 
 function scheduleUpdate() {
@@ -573,9 +533,7 @@ client.once("ready", async () => {
       await guild.members.fetch();
       console.log(`✅ ${guild.members.cache.size} leden geladen`);
     }
-  } catch (err) {
-    console.error("Failed to prefetch members:", err);
-  }
+  } catch (err) {}
   await registerCommands();
   await safeUpdateList();
 });
@@ -594,4 +552,27 @@ client.on("guildMemberUpdate", (oldMember, newMember) => {
       break;
     }
   }
-  if (touches
+  if (touchesGangRole) scheduleUpdate();
+});
+
+client.on("guildMemberRemove", (member) => {
+  const hasGangRole = [...member.roles.cache.keys()].some(id => watchedRoleIds.has(id));
+  if (hasGangRole) scheduleUpdate();
+});
+
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName === "refresh") await handleRefresh(interaction);
+  else if (interaction.commandName === "promo") await handlePromote(interaction);
+  else if (interaction.commandName === "demote") await handleDemote(interaction);
+  else if (interaction.commandName === "warn") await handleWarn(interaction);
+  else if (interaction.commandName === "removewarn") await handleRemoveWarn(interaction);
+  else if (interaction.commandName === "aangenomen") await handleAangenomen(interaction);
+  else if (interaction.commandName === "ontslagen") await handleOntslagen(interaction);
+  else if (interaction.commandName === "afwezigheid") await handleAfwezigheid(interaction);
+});
+
+process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
+process.on("uncaughtException", (err) => console.error("Uncaught exception:", err));
+
+client.login(TOKEN);
