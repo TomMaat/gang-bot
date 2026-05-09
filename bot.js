@@ -224,6 +224,167 @@ async function registerCommands() {
   }
 }
 
+// ========================================
+// 📨 EMBED FUNCTIONS - WITTE BALK, EMOJIS, ALLES ONDER ELKAAR
+// ========================================
+
+async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
+  const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📈 PROMOTIE")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📌 Van", value: oldRank, inline: false },
+      { name: "🎯 Naar", value: newRank, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(getServerIcon(guild));
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
+  const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📉 DEMOTIE")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📌 Van", value: oldRank, inline: false },
+      { name: "⬇️ Naar", value: newRank, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(getServerIcon(guild));
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendWarnEmbed(user, warnLevel, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("⚠️ WAARSCHUWING")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "⚠️ Niveau", value: warnLevel, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendRemoveWarnEmbed(user, warnLevel, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("✅ WAARSCHUWING INGETROKKEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "⚠️ Niveau", value: warnLevel, inline: false },
+      { name: "📝 Reden ingetrokken", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendAangenomenEmbed(guild, user, rank, reason) {
+  const channel = await client.channels.fetch(AANGENOMEN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("✅ AANGENOMEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "🎯 Rang", value: rank, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendOntslagenEmbed(user, reason) {
+  const channel = await client.channels.fetch(ONTSLAGEN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("❌ ONTSLAGEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
+  const channel = await client.channels.fetch(AFWEZIGHEID_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+  const tilText = tilDate === "??" || tilDate === "Onbekend" || !tilDate ? "??" : tilDate;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📋 AFWEZIGHEID")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Vanaf", value: fromDate, inline: false },
+      { name: "📅 Tot", value: tilText, inline: false },
+      { name: "📅 Gemeld op", value: getFullDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+// ========================================
+// 🎮 COMMAND HANDLERS
+// ========================================
+
 async function handlePromote(interaction) {
   const steps = interaction.options.getInteger("steps");
   const targetUser = interaction.options.getUser("user");
@@ -262,11 +423,7 @@ async function handlePromote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gepromoveerd van ${oldRankName} naar ${newRankName} (+${steps})!` });
-    const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("PROMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Van", value: oldRankName, inline: true }, { name: "Naar", value: newRankName, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
-      await channel.send({ embeds: [embed] });
-    }
+    await sendPromoEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Promote error:", error);
@@ -312,11 +469,7 @@ async function handleDemote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gedemoveerd van ${oldRankName} naar ${newRankName} (-${steps})!` });
-    const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("DEMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Van", value: oldRankName, inline: true }, { name: "Naar", value: newRankName, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
-      await channel.send({ embeds: [embed] });
-    }
+    await sendDemoteEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Demote error:", error);
@@ -348,12 +501,7 @@ async function handleWarn(interaction) {
   try {
     await targetMember.roles.add(warnRole);
     await interaction.reply({ content: `✅ ${targetUser.username} heeft een ${warnLevel} gekregen!` });
-    const channel = await client.channels.fetch(WARN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("WAARSCHUWING").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Niveau", value: warnLevel, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFFA500).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendWarnEmbed(targetMember, warnLevel, reason);
   } catch (error) {
     console.error("Warn error:", error);
     if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
@@ -388,12 +536,7 @@ async function handleRemoveWarn(interaction) {
   try {
     await targetMember.roles.remove(warnRole);
     await interaction.reply({ content: `✅ ${targetUser.username} zijn ${warnLevel} is ingetrokken!` });
-    const channel = await client.channels.fetch(WARN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("WAARSCHUWING INGETROKKEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Niveau", value: warnLevel, inline: true }, { name: "Reden ingetrokken", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendRemoveWarnEmbed(targetMember, warnLevel, reason);
   } catch (error) {
     console.error("RemoveWarn error:", error);
     if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
@@ -432,13 +575,7 @@ async function handleAangenomen(interaction) {
     await targetMember.roles.add(roleToAdd);
     await targetMember.roles.add(lidRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is aangenomen als ${rank.name}!` });
-    const channel = await client.channels.fetch(AANGENOMEN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      // Profielfoto van de aangenomen gebruiker ipv logo
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("AANGENOMEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Rang", value: rank.name, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendAangenomenEmbed(guild, targetMember, rank.name, reason);
     await safeUpdateList();
   } catch (error) {
     console.error("Aangenomen error:", error);
@@ -463,12 +600,7 @@ async function handleOntslagen(interaction) {
     await removeAllGangRoles(targetMember);
     await removeLidRole(targetMember);
     await interaction.reply({ content: `✅ ${targetUser.username} is ontslagen!` });
-    const channel = await client.channels.fetch(ONTSLAGEN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("ONTSLAGEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendOntslagenEmbed(targetMember, reason);
     await safeUpdateList();
   } catch (error) {
     console.error("Ontslagen error:", error);
@@ -491,13 +623,7 @@ async function handleAfwezigheid(interaction) {
       await interaction.editReply({ content: "❌ Ongeldig formaat! Gebruik DD/MM/YYYY of ??" });
       return;
     }
-    const channel = await client.channels.fetch(AFWEZIGHEID_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const tilText = tilDate === "??" || tilDate === "Onbekend" ? "??" : tilDate;
-      const embed = new EmbedBuilder().setTitle("AFWEZIGHEID").setDescription(`${memberLink(member.id, member.displayName)}`).addFields({ name: "Reden", value: reason, inline: false }, { name: "Vanaf", value: fromDate, inline: true }, { name: "Tot", value: tilText, inline: true }, { name: "Gemeld op", value: getFullDate(), inline: false }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
     await interaction.editReply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!` });
   } catch (error) {
     console.error("Afwezigheid error:", error);
@@ -545,36 +671,4 @@ client.on("guildMemberUpdate", (oldMember, newMember) => {
   const newRoles = new Set(newMember.roles.cache.keys());
   let changed = false;
   for (const id of oldRoles) if (!newRoles.has(id)) changed = true;
-  for (const id of newRoles) if (!oldRoles.has(id)) changed = true;
-  if (!changed) return;
-  let touchesGangRole = false;
-  for (const id of watchedRoleIds) {
-    if (oldRoles.has(id) !== newRoles.has(id)) {
-      touchesGangRole = true;
-      break;
-    }
-  }
-  if (touchesGangRole) scheduleUpdate();
-});
-
-client.on("guildMemberRemove", (member) => {
-  const hasGangRole = [...member.roles.cache.keys()].some(id => watchedRoleIds.has(id));
-  if (hasGangRole) scheduleUpdate();
-});
-
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName === "refresh") await handleRefresh(interaction);
-  else if (interaction.commandName === "promo") await handlePromote(interaction);
-  else if (interaction.commandName === "demote") await handleDemote(interaction);
-  else if (interaction.commandName === "warn") await handleWarn(interaction);
-  else if (interaction.commandName === "removewarn") await handleRemoveWarn(interaction);
-  else if (interaction.commandName === "aangenomen") await handleAangenomen(interaction);
-  else if (interaction.commandName === "ontslagen") await handleOntslagen(interaction);
-  else if (interaction.commandName === "afwezigheid") await handleAfwezigheid(interaction);
-});
-
-process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
-process.on("uncaughtException", (err) => console.error("Uncaught exception:", err));
-
-client.login(TOKEN);
+  for (const id of newRoles) if (!oldRoles.has(id))
