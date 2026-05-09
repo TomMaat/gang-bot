@@ -833,5 +833,4 @@ async function handleAangenomen(interaction) {
 }
 
 async function handleOntslagen(interaction) {
-  const targetUser = interaction.options.getUser("user");
-  const
+  const targetUser = interaction.options.getUser("
