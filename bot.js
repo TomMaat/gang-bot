@@ -7,28 +7,6 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
-// ========================================
-// ⚙️ CONFIGURATION - CHANGE THESE VALUES ⚙️
-// ========================================
-
-// !!! REPLACE THIS WITH YOUR ACTUAL LOGO IMAGE URL !!!
-// How to get a working URL:
-// 1. Upload your logo to a free image hosting site like Imgur (https://imgur.com/upload)
-// 2. Right-click the uploaded image and select "Copy image address"
-// 3. Paste that URL between the quotes below
-const LOGO_URL = "https://cdn.discordapp.com/attachments/1460270106558070874/1498008879466942655/image.png?ex=69ff6afc&is=69fe197c&hm=175be611d64e32699b97ab56ebd56788f17d9a20025c8658a3183adfe30ea4b0&";
-
-// Channel IDs (verify these are correct for your server)
-const WARN_CHANNEL_ID = "1475784747392172178";
-const PROMO_CHANNEL_ID = "1478540121555996836";
-const DEMOTE_CHANNEL_ID = "1502446924702290053";
-const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
-const GANG_LIST_CHANNEL_ID = "1475784753264201740";
-
-// ========================================
-// ⚙️ END OF CONFIGURATION ⚙️
-// ========================================
-
 // Create a web server so Render knows the bot is alive
 const server = http.createServer((req, res) => {
   res.writeHead(200);
@@ -44,25 +22,35 @@ if (!TOKEN) {
   process.exit(1);
 }
 
+const GANG_LIST_CHANNEL_ID = "1475784753264201740";
 const ROLE_CHANGE_DEBOUNCE_MS = 3000;
+
+// Separate channel IDs for different actions
+const WARN_CHANNEL_ID = "1475784747392172178";
+const PROMO_CHANNEL_ID = "1478540121555996836";
+const DEMOTE_CHANNEL_ID = "1502446924702290053";
+const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
+
+// Placeholder image URL (Discord's default missing image)
+const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/embed/avatars/0.png";
 
 // Role IDs for admin commands
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
 
-// Ranks from highest to lowest
+// Ranks from highest to lowest (emoji only used in list, not in embeds)
 const ranks = [
-  { name: "👑 Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541", level: 10 },
-  { name: "🧠 Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999", level: 9 },
-  { name: "🎯 Encargado", roleId: process.env.ROLE_ENCARGADO ?? "1499735272299040798", level: 8 },
-  { name: "🔫 Sicario", roleId: process.env.ROLE_SICARIO ?? "1475784696553144321", level: 7 },
-  { name: "💰 Paro", roleId: process.env.ROLE_PARO ?? "1478541802494627841", level: 6 },
-  { name: "⚡ Activo", roleId: process.env.ROLE_ACTIVO ?? "1499735621156081774", level: 5 },
-  { name: "📦 Chequeos", roleId: process.env.ROLE_CHEQUEOS ?? "1475784700982329407", level: 4 },
-  { name: "🤝 Colaborador", roleId: process.env.ROLE_COLABORADOR ?? "1499736095158435960", level: 3 },
-  { name: "🪖 Soldado", roleId: process.env.ROLE_SOLDADO ?? "1475784699073921104", level: 2 },
-  { name: "🆕 Recruta", roleId: process.env.ROLE_RECRUTA ?? "1475784699753267364", level: 1 },
+  { name: "Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541", level: 10, emoji: "👑" },
+  { name: "Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999", level: 9, emoji: "🧠" },
+  { name: "Encargado", roleId: process.env.ROLE_ENCARGADO ?? "1499735272299040798", level: 8, emoji: "🎯" },
+  { name: "Sicario", roleId: process.env.ROLE_SICARIO ?? "1475784696553144321", level: 7, emoji: "🔫" },
+  { name: "Paro", roleId: process.env.ROLE_PARO ?? "1478541802494627841", level: 6, emoji: "💰" },
+  { name: "Activo", roleId: process.env.ROLE_ACTIVO ?? "1499735621156081774", level: 5, emoji: "⚡" },
+  { name: "Chequeos", roleId: process.env.ROLE_CHEQUEOS ?? "1475784700982329407", level: 4, emoji: "📦" },
+  { name: "Colaborador", roleId: process.env.ROLE_COLABORADOR ?? "1499736095158435960", level: 3, emoji: "🤝" },
+  { name: "Soldado", roleId: process.env.ROLE_SOLDADO ?? "1475784699073921104", level: 2, emoji: "🪖" },
+  { name: "Recruta", roleId: process.env.ROLE_RECRUTA ?? "1475784699753267364", level: 1, emoji: "🆕" },
 ];
 
 // Sort ranks by level (highest first)
@@ -82,6 +70,15 @@ function memberLink(id, _name) {
 }
 
 function getCurrentDate() {
+  const date = new Date();
+  return date.toLocaleDateString('nl-NL', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  }).replace(/\//g, '/');
+}
+
+function getFullDate() {
   const date = new Date();
   return date.toLocaleDateString('nl-NL', {
     year: 'numeric',
@@ -122,10 +119,18 @@ async function removeAllGangRoles(member) {
 }
 
 // ========================================
-// 📨 EMBED FUNCTIONS WITH CLEAN DESIGN
+// 📨 EMBED FUNCTIONS WITH REQUESTED DESIGN
 // ========================================
 
-async function sendPromoEmbed(user, oldRank, newRank, reason, steps) {
+// Get server icon URL (returns placeholder if none)
+function getServerIcon(guild) {
+  if (guild && guild.iconURL()) {
+    return guild.iconURL({ size: 1024 });
+  }
+  return PLACEHOLDER_IMAGE;
+}
+
+async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
   const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
   if (!channel || !channel.isTextBased()) {
     console.error(`Cannot send embed: Channel ${PROMO_CHANNEL_ID} not found`);
@@ -133,22 +138,23 @@ async function sendPromoEmbed(user, oldRank, newRank, reason, steps) {
   }
 
   const embed = new EmbedBuilder()
-    .setTitle("🎉 PROMOTIE")
+    .setTitle("PROMOTIE")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "📈 Van", value: oldRank, inline: true },
-      { name: "📈 Naar", value: newRank, inline: true },
-      { name: "📝 Reden", value: reason, inline: false },
-      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+      { name: "Van", value: oldRank, inline: true },
+      { name: "Naar", value: newRank, inline: true },
+      { name: "Reden", value: reason, inline: false },
+      { name: "Datum", value: getCurrentDate(), inline: true }
     )
     .setColor(0x00FF00)
-    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
-    .setTimestamp();
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(getServerIcon(guild));
 
   await channel.send({ embeds: [embed] });
 }
 
-async function sendDemoteEmbed(user, oldRank, newRank, reason, steps) {
+async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
   const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
   if (!channel || !channel.isTextBased()) {
     console.error(`Cannot send embed: Channel ${DEMOTE_CHANNEL_ID} not found`);
@@ -156,17 +162,18 @@ async function sendDemoteEmbed(user, oldRank, newRank, reason, steps) {
   }
 
   const embed = new EmbedBuilder()
-    .setTitle("📉 DEMOTIE")
+    .setTitle("DEMOTIE")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "📉 Van", value: oldRank, inline: true },
-      { name: "📉 Naar", value: newRank, inline: true },
-      { name: "📝 Reden", value: reason, inline: false },
-      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+      { name: "Van", value: oldRank, inline: true },
+      { name: "Naar", value: newRank, inline: true },
+      { name: "Reden", value: reason, inline: false },
+      { name: "Datum", value: getCurrentDate(), inline: true }
     )
     .setColor(0xFF0000)
-    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
-    .setTimestamp();
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(getServerIcon(guild));
 
   await channel.send({ embeds: [embed] });
 }
@@ -178,17 +185,20 @@ async function sendWarnEmbed(user, warnLevel, reason) {
     return;
   }
 
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
   const embed = new EmbedBuilder()
-    .setTitle("⚠️ WAARSCHUWING")
+    .setTitle("WAARSCHUWING")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "⚠️ Niveau", value: warnLevel, inline: true },
-      { name: "📝 Reden", value: reason, inline: false },
-      { name: "📅 Datum", value: getCurrentDate(), inline: true }
+      { name: "Niveau", value: warnLevel, inline: true },
+      { name: "Reden", value: reason, inline: false },
+      { name: "Datum", value: getCurrentDate(), inline: true }
     )
     .setColor(0xFFA500)
-    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
-    .setTimestamp();
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
 
   await channel.send({ embeds: [embed] });
 }
@@ -200,18 +210,22 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
     return;
   }
 
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+  const tilText = tilDate === "??" || tilDate === "Onbekend" ? "??" : tilDate;
+
   const embed = new EmbedBuilder()
-    .setTitle("📋 AFWEZIGHEID")
+    .setTitle("AFWEZIGHEID")
     .setDescription(`${memberLink(user.id, user.displayName)}`)
     .addFields(
-      { name: "📝 Reden", value: reason, inline: false },
-      { name: "📅 Vanaf", value: fromDate, inline: true },
-      { name: "📅 Tot", value: tilDate, inline: true },
-      { name: "📅 Gemeld op", value: getCurrentDate(), inline: false }
+      { name: "Reden", value: reason, inline: false },
+      { name: "Van", value: fromDate, inline: true },
+      { name: "Tot", value: tilText, inline: true },
+      { name: "Gemeld op", value: getFullDate(), inline: false }
     )
     .setColor(0x00A5FF)
-    .setFooter({ text: "MK-13 Bot", iconURL: LOGO_URL })
-    .setTimestamp();
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
 
   await channel.send({ embeds: [embed] });
 }
@@ -225,6 +239,7 @@ const client = new Client({
 });
 
 let messageId = null;
+let currentGuild = null;
 
 async function buildEmbed() {
   const guild = client.guilds.cache.first();
@@ -232,6 +247,7 @@ async function buildEmbed() {
     console.warn("Bot is not in any guild yet.");
     return null;
   }
+  currentGuild = guild;
 
   let body = "";
   const uniqueMembers = new Set();
@@ -239,7 +255,7 @@ async function buildEmbed() {
   for (const rank of sortedRanks) {
     const role = guild.roles.cache.get(rank.roleId);
     if (!role) {
-      body += `**${rank.name} (0)**\n`;
+      body += `**${rank.emoji} ${rank.name} (0)**\n`;
       body += `➤ Rol niet gevonden\n\n`;
       continue;
     }
@@ -250,7 +266,7 @@ async function buildEmbed() {
 
     for (const m of members) uniqueMembers.add(m.id);
 
-    body += `**${rank.name} (${members.length})**\n`;
+    body += `**${rank.emoji} ${rank.name} (${members.length})**\n`;
     if (members.length > 0) {
       for (const m of members) {
         body += `➤ ${memberLink(m.id, m.name)}\n`;
@@ -268,7 +284,7 @@ async function buildEmbed() {
     .setColor(0x2b2b2b)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: "🔄 Auto-update bij rolwijzigingen" })
-    .setTimestamp(new Date());
+    .setTimestamp();
 }
 
 async function updateList() {
@@ -392,11 +408,11 @@ async function registerCommands() {
           .setRequired(true))
       .addStringOption(option =>
         option.setName("from")
-          .setDescription("Vanaf welke datum (bijv. 27 april 2026)")
+          .setDescription("Vanaf welke datum (bijv. 27/04/2026)")
           .setRequired(true))
       .addStringOption(option =>
         option.setName("til")
-          .setDescription("Tot welke datum (bijv. 30 april 2026)")
+          .setDescription("Tot welke datum (bijv. 30/04/2026 of ??)")
           .setRequired(true)),
   ].map(cmd => cmd.toJSON());
 
@@ -423,6 +439,7 @@ async function handlePromote(interaction) {
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
+  const guild = interaction.guild;
 
   if (!hasAdminRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
@@ -462,7 +479,7 @@ async function handlePromote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gepromoveerd van ${oldRankName} naar ${newRankName} (+${steps})!` });
-    await sendPromoEmbed(targetMember, oldRankName, newRankName, reason, steps);
+    await sendPromoEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Promote error:", error);
@@ -477,6 +494,7 @@ async function handleDemote(interaction) {
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
+  const guild = interaction.guild;
 
   if (!hasAdminRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
@@ -516,7 +534,7 @@ async function handleDemote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gedemoveerd van ${oldRankName} naar ${newRankName} (-${steps})!` });
-    await sendDemoteEmbed(targetMember, oldRankName, newRankName, reason, steps);
+    await sendDemoteEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Demote error:", error);
@@ -579,11 +597,10 @@ async function handleAfwezigheid(interaction) {
   const reason = interaction.options.getString("reason");
   const fromDate = interaction.options.getString("from");
   const tilDate = interaction.options.getString("til");
-  const user = interaction.user;
   const member = interaction.member;
 
   try {
-    await interaction.reply({ content: `✅ ${user.username}, je afwezigheid is gemeld!`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!`, flags: MessageFlags.Ephemeral });
     await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
   } catch (error) {
     console.error("Afwezigheid error:", error);
@@ -625,6 +642,7 @@ client.once("ready", async () => {
   try {
     const guild = client.guilds.cache.first();
     if (guild) {
+      currentGuild = guild;
       await guild.members.fetch();
       console.log(`✅ ${guild.members.cache.size} leden geladen`);
     }
