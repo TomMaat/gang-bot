@@ -23,6 +23,7 @@ if (!TOKEN) {
 }
 
 const GANG_LIST_CHANNEL_ID = "1475784753264201740";
+const WELCOME_CHANNEL_ID = "1475784743395135559";
 const ROLE_CHANGE_DEBOUNCE_MS = 3000;
 const WARN_CHANNEL_ID = "1475784747392172178";
 const PROMO_CHANNEL_ID = "1478540121555996836";
@@ -33,7 +34,7 @@ const ONTSLAGEN_CHANNEL_ID = "1499167137334558790";
 
 // Role IDs for permissions
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
-const MOD_ROLE_ID = "1475784711166103716";  // @MOD/Admin role for most commands
+const MOD_ROLE_ID = "1475784711166103716";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
 const LID_ROLE_ID = "1475784707844341780";
@@ -98,7 +99,6 @@ function isValidDate(dateString) {
   return day <= daysInMonth;
 }
 
-// Permission check functions
 function hasAdminRole(member) {
   return member.roles.cache.has(ADMIN_ROLE_ID);
 }
@@ -148,7 +148,14 @@ function getServerIcon(guild) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildModeration,
+  ],
 });
 
 let messageId = null;
@@ -206,32 +213,33 @@ async function safeUpdateList() {
   try { await updateList(); } catch (err) { console.error("Failed to update gang list:", err); }
 }
 
-async function registerCommands() {
-  const commands = [
-    new SlashCommandBuilder().setName("refresh").setDescription("Refresh de gang ledenlijst nu").addBooleanOption((option) => option.setName("ephemeral").setDescription("Toon alleen aan jou").setRequired(false)),
-    new SlashCommandBuilder().setName("promo").setDescription("Promoveer een lid (1=+1 rank)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omhoog (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gepromoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor promotie").setRequired(true)),
-    new SlashCommandBuilder().setName("demote").setDescription("Demoveer een lid (1=-1 rank)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omlaag (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gedemoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor demotie").setRequired(true)),
-    new SlashCommandBuilder().setName("warn").setDescription("Geef een waarschuwing aan een lid").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid dat gewaarschuwd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor waarschuwing").setRequired(true)),
-    new SlashCommandBuilder().setName("removewarn").setDescription("Trek een waarschuwing in").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid waarvan de waarschuwing wordt ingetrokken").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor intrekken").setRequired(true)),
-    new SlashCommandBuilder().setName("aangenomen").setDescription("Neem een nieuw lid aan").addUserOption(option => option.setName("user").setDescription("Het lid dat wordt aangenomen").setRequired(true)).addStringOption(option => option.setName("rank").setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor aanname").setRequired(true)),
-    new SlashCommandBuilder().setName("ontslagen").setDescription("Ontsla een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat ontslagen wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor ontslag").setRequired(true)),
-    new SlashCommandBuilder().setName("afwezigheid").setDescription("Meld je afwezigheid (DD/MM/YYYY)").addStringOption(option => option.setName("reason").setDescription("Reden van afwezigheid").setRequired(true)).addStringOption(option => option.setName("from").setDescription("Vanaf (DD/MM/YYYY)").setRequired(true)).addStringOption(option => option.setName("til").setDescription("Tot (DD/MM/YYYY of ??)").setRequired(true)),
-    new SlashCommandBuilder().setName("clear").setDescription("Verwijder berichten in dit kanaal").addStringOption(option => option.setName("number").setDescription("Aantal berichten of 'all'").setRequired(true)),
-    new SlashCommandBuilder().setName("mute").setDescription("Mute een lid (kan niet praten of joinen)").addUserOption(option => option.setName("user").setDescription("Het lid dat gemute wordt").setRequired(true)).addIntegerOption(option => option.setName("minutes").setDescription("Aantal minuten (1-1440)").setRequired(true).setMinValue(1).setMaxValue(1440)),
-    new SlashCommandBuilder().setName("unmute").setDescription("Unmute een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat geunmute wordt").setRequired(true)),
-  ].map(cmd => cmd.toJSON());
+// ========================================
+// 🆕 WELCOME MESSAGE
+// ========================================
 
+async function sendWelcomeMessage(member) {
   try {
-    const guild = client.guilds.cache.first();
-    if (guild) {
-      await guild.commands.set(commands);
-      console.log(`✅ Commands geregistreerd in ${guild.name}`);
-    } else {
-      await client.application?.commands.set(commands);
-      console.log("✅ Commands globaal geregistreerd");
-    }
-  } catch (err) {
-    console.error("Failed to register commands:", err);
+    const channel = await client.channels.fetch(WELCOME_CHANNEL_ID);
+    if (!channel || !channel.isTextBased()) return;
+
+    const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
+    const memberCount = member.guild.memberCount;
+
+    const embed = new EmbedBuilder()
+      .setTitle("👋 WELKOM!")
+      .setDescription(`Welkom ${memberLink(member.id, member.displayName)} in de **MK-13** Discord server!`)
+      .addFields(
+        { name: "📊 Totaal leden", value: `${memberCount}`, inline: true },
+        { name: "📅 Datum", value: getCurrentDate(), inline: true }
+      )
+      .setColor(0xFFFFFF)
+      .setFooter({ text: "MK-13 Bot" })
+      .setTimestamp()
+      .setThumbnail(userAvatar);
+
+    await channel.send({ embeds: [embed] });
+  } catch (error) {
+    console.error("Welcome message error:", error);
   }
 }
 
@@ -392,16 +400,57 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
   await channel.send({ embeds: [embed] });
 }
 
+async function sendMuteEmbed(user, minutes, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("🔇 GEMUTE")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "⏱️ Duur", value: `${minutes} minuten`, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendUnmuteEmbed(user, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("🔊 GEUNMUTE")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason || "Geen reden", inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
 // ========================================
-// 🆕 MUTE & UNMUTE COMMANDS
+// 🆕 MUTE SYSTEM
 // ========================================
 
-// Store active mutes with timeout references
 const activeMutes = new Map();
 
-async function applyMute(member, minutes, reason = "Geen reden opgegeven") {
+async function applyMute(member, minutes, reason) {
   try {
-    // Timeout role - create it if it doesn't exist
     let muteRole = member.guild.roles.cache.find(r => r.name === "Gemute");
     if (!muteRole) {
       muteRole = await member.guild.roles.create({
@@ -411,45 +460,35 @@ async function applyMute(member, minutes, reason = "Geen reden opgegeven") {
         reason: "Role for muted members"
       });
       
-      // Deny permissions in all channels
-      member.guild.channels.cache.forEach(async (channel) => {
+      // Apply mute permissions to ALL channels
+      for (const channel of member.guild.channels.cache.values()) {
         try {
           await channel.permissionOverwrites.edit(muteRole, {
             SendMessages: false,
             AddReactions: false,
             Speak: false,
             Connect: false,
-            RequestToSpeak: false
+            RequestToSpeak: false,
+            CreatePublicThreads: false,
+            CreatePrivateThreads: false,
+            SendMessagesInThreads: false,
+            AddReactions: false
           });
-        } catch (err) {}
-      });
+        } catch (err) {
+          // Ignore errors for channels where bot can't edit permissions
+        }
+      }
     }
     
     await member.roles.add(muteRole);
     
-    // Send confirmation embed
-    const channel = await client.channels.fetch(WARN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder()
-        .setTitle("🔇 GEMUTE")
-        .setDescription(`${memberLink(member.id, member.displayName)}`)
-        .addFields(
-          { name: "⏱️ Duur", value: `${minutes} minuten`, inline: true },
-          { name: "📝 Reden", value: reason, inline: false },
-          { name: "📅 Datum", value: getCurrentDate(), inline: true }
-        )
-        .setColor(0xFFFFFF)
-        .setFooter({ text: "MK-13 Bot" })
-        .setTimestamp()
-        .setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    // Send mute embed
+    await sendMuteEmbed(member, minutes, reason);
     
-    // Set timeout to auto-unmute
+    // Auto-unmute after minutes
     if (minutes > 0) {
       const timeout = setTimeout(async () => {
-        await removeMute(member);
+        await removeMute(member, "Automatisch einde mute");
         activeMutes.delete(member.id);
       }, minutes * 60 * 1000);
       
@@ -463,39 +502,52 @@ async function applyMute(member, minutes, reason = "Geen reden opgegeven") {
   }
 }
 
-async function removeMute(member) {
+async function removeMute(member, reason = "Handmatig") {
   try {
     const muteRole = member.guild.roles.cache.find(r => r.name === "Gemute");
     if (muteRole && member.roles.cache.has(muteRole.id)) {
       await member.roles.remove(muteRole);
       
-      // Clear timeout if exists
       if (activeMutes.has(member.id)) {
         clearTimeout(activeMutes.get(member.id));
         activeMutes.delete(member.id);
       }
       
-      // Send unmute embed
-      const channel = await client.channels.fetch(WARN_CHANNEL_ID);
-      if (channel && channel.isTextBased()) {
-        const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
-        const embed = new EmbedBuilder()
-          .setTitle("🔊 GEUNMUTE")
-          .setDescription(`${memberLink(member.id, member.displayName)}`)
-          .addFields(
-            { name: "📅 Datum", value: getCurrentDate(), inline: true }
-          )
-          .setColor(0xFFFFFF)
-          .setFooter({ text: "MK-13 Bot" })
-          .setTimestamp()
-          .setThumbnail(userAvatar);
-        await channel.send({ embeds: [embed] });
-      }
+      await sendUnmuteEmbed(member, reason);
     }
     return true;
   } catch (error) {
     console.error("Unmute error:", error);
     return false;
+  }
+}
+
+async function registerCommands() {
+  const commands = [
+    new SlashCommandBuilder().setName("refresh").setDescription("Refresh de gang ledenlijst nu").addBooleanOption((option) => option.setName("ephemeral").setDescription("Toon alleen aan jou").setRequired(false)),
+    new SlashCommandBuilder().setName("promo").setDescription("Promoveer een lid (1=+1 rank)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omhoog (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gepromoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor promotie").setRequired(true)),
+    new SlashCommandBuilder().setName("demote").setDescription("Demoveer een lid (1=-1 rank)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omlaag (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gedemoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor demotie").setRequired(true)),
+    new SlashCommandBuilder().setName("warn").setDescription("Geef een waarschuwing aan een lid").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid dat gewaarschuwd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor waarschuwing").setRequired(true)),
+    new SlashCommandBuilder().setName("removewarn").setDescription("Trek een waarschuwing in").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid waarvan de waarschuwing wordt ingetrokken").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor intrekken").setRequired(true)),
+    new SlashCommandBuilder().setName("aangenomen").setDescription("Neem een nieuw lid aan").addUserOption(option => option.setName("user").setDescription("Het lid dat wordt aangenomen").setRequired(true)).addStringOption(option => option.setName("rank").setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor aanname").setRequired(true)),
+    new SlashCommandBuilder().setName("ontslagen").setDescription("Ontsla een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat ontslagen wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor ontslag").setRequired(true)),
+    new SlashCommandBuilder().setName("afwezigheid").setDescription("Meld je afwezigheid (DD/MM/YYYY)").addStringOption(option => option.setName("reason").setDescription("Reden van afwezigheid").setRequired(true)).addStringOption(option => option.setName("from").setDescription("Vanaf (DD/MM/YYYY)").setRequired(true)).addStringOption(option => option.setName("til").setDescription("Tot (DD/MM/YYYY of ??)").setRequired(true)),
+    new SlashCommandBuilder().setName("clear").setDescription("Verwijder berichten in dit kanaal").addStringOption(option => option.setName("number").setDescription("Aantal berichten of 'all'").setRequired(true)),
+    new SlashCommandBuilder().setName("mute").setDescription("Mute een lid (kan niet praten of typen)").addUserOption(option => option.setName("user").setDescription("Het lid dat gemute wordt").setRequired(true)).addIntegerOption(option => option.setName("minutes").setDescription("Aantal minuten (1-1440)").setRequired(true).setMinValue(1).setMaxValue(1440)).addStringOption(option => option.setName("reason").setDescription("Reden voor mute").setRequired(false)),
+    new SlashCommandBuilder().setName("unmute").setDescription("Unmute een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat geunmute wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor unmute").setRequired(false)),
+  ].map(cmd => cmd.toJSON());
+
+  try {
+    const guild = client.guilds.cache.first();
+    if (guild) {
+      await guild.commands.set(commands);
+      console.log(`✅ Commands geregistreerd in ${guild.name}`);
+    } else {
+      await client.application?.commands.set(commands);
+      console.log("✅ Commands globaal geregistreerd");
+    }
+  } catch (err) {
+    console.error("Failed to register commands:", err);
   }
 }
 
@@ -510,7 +562,6 @@ async function handlePromote(interaction) {
   const executor = interaction.member;
   const guild = interaction.guild;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -559,7 +610,6 @@ async function handleDemote(interaction) {
   const executor = interaction.member;
   const guild = interaction.guild;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -607,7 +657,6 @@ async function handleWarn(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -641,7 +690,6 @@ async function handleRemoveWarn(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -680,7 +728,6 @@ async function handleAangenomen(interaction) {
   const executor = interaction.member;
   const guild = interaction.guild;
   
-  // Check ADMIN role (special role)
   if (!hasAdminRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -721,7 +768,6 @@ async function handleOntslagen(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -770,7 +816,6 @@ async function handleAfwezigheid(interaction) {
 async function handleRefresh(interaction) {
   const executor = interaction.member;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -854,16 +899,12 @@ async function handleClear(interaction) {
   }
 }
 
-// ========================================
-// 🆕 MUTE & UNMUTE HANDLERS
-// ========================================
-
 async function handleMute(interaction) {
   const targetUser = interaction.options.getUser("user");
   const minutes = interaction.options.getInteger("minutes");
+  const reason = interaction.options.getString("reason") || "Geen reden opgegeven";
   const executor = interaction.member;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -875,13 +916,11 @@ async function handleMute(interaction) {
     return;
   }
   
-  // Check if target is higher role
   if (targetMember.roles.highest.position >= executor.roles.highest.position && executor.id !== interaction.guild.ownerId) {
     await interaction.reply({ content: "❌ Je kunt deze gebruiker niet muten!", ephemeral: true });
     return;
   }
   
-  // Check if already muted
   const existingMuteRole = interaction.guild.roles.cache.find(r => r.name === "Gemute");
   if (existingMuteRole && targetMember.roles.cache.has(existingMuteRole.id)) {
     await interaction.reply({ content: "❌ Deze gebruiker is al gemute!", ephemeral: true });
@@ -890,10 +929,10 @@ async function handleMute(interaction) {
   
   await interaction.deferReply({ ephemeral: true });
   
-  const success = await applyMute(targetMember, minutes, "Geen reden opgegeven");
+  const success = await applyMute(targetMember, minutes, reason);
   
   if (success) {
-    await interaction.editReply({ content: `✅ ${targetUser.username} is gemute voor ${minutes} minuten!` });
+    await interaction.editReply({ content: `✅ ${targetUser.username} is gemute voor ${minutes} minuten!\n📝 Reden: ${reason}` });
   } else {
     await interaction.editReply({ content: `❌ Er ging iets mis bij het muten van ${targetUser.username}.` });
   }
@@ -901,9 +940,9 @@ async function handleMute(interaction) {
 
 async function handleUnmute(interaction) {
   const targetUser = interaction.options.getUser("user");
+  const reason = interaction.options.getString("reason") || "Geen reden opgegeven";
   const executor = interaction.member;
   
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
@@ -917,10 +956,10 @@ async function handleUnmute(interaction) {
   
   await interaction.deferReply({ ephemeral: true });
   
-  const success = await removeMute(targetMember);
+  const success = await removeMute(targetMember, reason);
   
   if (success) {
-    await interaction.editReply({ content: `✅ ${targetUser.username} is geunmute!` });
+    await interaction.editReply({ content: `✅ ${targetUser.username} is geunmute!\n📝 Reden: ${reason}` });
   } else {
     await interaction.editReply({ content: `❌ ${targetUser.username} was niet gemute of er ging iets mis.` });
   }
@@ -948,6 +987,11 @@ client.once("ready", async () => {
   } catch (err) {}
   await registerCommands();
   await safeUpdateList();
+});
+
+// Welcome message when a member joins
+client.on("guildMemberAdd", async (member) => {
+  await sendWelcomeMessage(member);
 });
 
 client.on("guildMemberUpdate", (oldMember, newMember) => {
