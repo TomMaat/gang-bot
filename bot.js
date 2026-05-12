@@ -31,7 +31,9 @@ const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
 const AANGENOMEN_CHANNEL_ID = "1499166962973151372";
 const ONTSLAGEN_CHANNEL_ID = "1499167137334558790";
 
+// Role IDs for permissions
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
+const MOD_ROLE_ID = "1475784711166103716";  // @MOD/Admin role for most commands
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
 const LID_ROLE_ID = "1475784707844341780";
@@ -96,8 +98,13 @@ function isValidDate(dateString) {
   return day <= daysInMonth;
 }
 
+// Permission check functions
 function hasAdminRole(member) {
   return member.roles.cache.has(ADMIN_ROLE_ID);
+}
+
+function hasModRole(member) {
+  return member.roles.cache.has(MOD_ROLE_ID) || member.roles.cache.has(ADMIN_ROLE_ID);
 }
 
 function getRoleIdByLevel(level) {
@@ -141,7 +148,7 @@ function getServerIcon(guild) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates],
 });
 
 let messageId = null;
@@ -209,7 +216,9 @@ async function registerCommands() {
     new SlashCommandBuilder().setName("aangenomen").setDescription("Neem een nieuw lid aan").addUserOption(option => option.setName("user").setDescription("Het lid dat wordt aangenomen").setRequired(true)).addStringOption(option => option.setName("rank").setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor aanname").setRequired(true)),
     new SlashCommandBuilder().setName("ontslagen").setDescription("Ontsla een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat ontslagen wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor ontslag").setRequired(true)),
     new SlashCommandBuilder().setName("afwezigheid").setDescription("Meld je afwezigheid (DD/MM/YYYY)").addStringOption(option => option.setName("reason").setDescription("Reden van afwezigheid").setRequired(true)).addStringOption(option => option.setName("from").setDescription("Vanaf (DD/MM/YYYY)").setRequired(true)).addStringOption(option => option.setName("til").setDescription("Tot (DD/MM/YYYY of ??)").setRequired(true)),
-    new SlashCommandBuilder().setName("clear").setDescription("Verwijder berichten in dit kanaal").addStringOption(option => option.setName("number").setDescription("Aantal berichten of 'all'").setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+    new SlashCommandBuilder().setName("clear").setDescription("Verwijder berichten in dit kanaal").addStringOption(option => option.setName("number").setDescription("Aantal berichten of 'all'").setRequired(true)),
+    new SlashCommandBuilder().setName("mute").setDescription("Mute een lid (kan niet praten of joinen)").addUserOption(option => option.setName("user").setDescription("Het lid dat gemute wordt").setRequired(true)).addIntegerOption(option => option.setName("minutes").setDescription("Aantal minuten (1-1440)").setRequired(true).setMinValue(1).setMaxValue(1440)),
+    new SlashCommandBuilder().setName("unmute").setDescription("Unmute een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat geunmute wordt").setRequired(true)),
   ].map(cmd => cmd.toJSON());
 
   try {
@@ -227,7 +236,7 @@ async function registerCommands() {
 }
 
 // ========================================
-// 📨 EMBED FUNCTIONS - WITTE BALK, EMOJIS, ALLES ONDER ELKAAR
+// 📨 EMBED FUNCTIONS
 // ========================================
 
 async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
@@ -384,76 +393,109 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
 }
 
 // ========================================
-// 🆕 /CLEAR COMMAND HANDLER
+// 🆕 MUTE & UNMUTE COMMANDS
 // ========================================
 
-async function handleClear(interaction) {
-  const numberInput = interaction.options.getString("number");
-  const channel = interaction.channel;
-  
-  if (!channel) {
-    await interaction.reply({ content: "❌ Kan dit kanaal niet vinden!", ephemeral: true });
-    return;
-  }
+// Store active mutes with timeout references
+const activeMutes = new Map();
 
-  // Check if user has permission to manage messages
-  if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-    await interaction.reply({ content: "❌ Je hebt geen permissie om berichten te verwijderen!", ephemeral: true });
-    return;
-  }
-
-  // Check if bot has permission to manage messages
-  if (!channel.permissionsFor(client.user)?.has(PermissionFlagsBits.ManageMessages)) {
-    await interaction.reply({ content: "❌ Ik heb geen permissie om berichten te verwijderen!", ephemeral: true });
-    return;
-  }
-
-  await interaction.deferReply({ ephemeral: true });
-
+async function applyMute(member, minutes, reason = "Geen reden opgegeven") {
   try {
-    if (numberInput.toLowerCase() === "all") {
-      // Delete all messages (in batches of 100)
-      let deletedTotal = 0;
-      let fetched;
+    // Timeout role - create it if it doesn't exist
+    let muteRole = member.guild.roles.cache.find(r => r.name === "Gemute");
+    if (!muteRole) {
+      muteRole = await member.guild.roles.create({
+        name: "Gemute",
+        color: 0x808080,
+        permissions: [],
+        reason: "Role for muted members"
+      });
       
-      do {
-        fetched = await channel.messages.fetch({ limit: 100 });
-        if (fetched.size === 0) break;
-        
-        const deleted = await channel.bulkDelete(fetched, true);
-        deletedTotal += deleted.size;
-        
-        // Small delay to avoid rate limits
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } while (fetched.size === 100);
-      
-      await interaction.editReply({ content: `✅ **${deletedTotal}** berichten verwijderd uit ${channel}!` });
-    } else {
-      // Delete specific number of messages
-      const amount = parseInt(numberInput);
-      if (isNaN(amount) || amount < 1) {
-        await interaction.editReply({ content: "❌ Voer een geldig getal in (1-100) of 'all'!" });
-        return;
-      }
-      
-      if (amount > 100) {
-        await interaction.editReply({ content: "❌ Je kunt maximaal 100 berichten tegelijk verwijderen! Gebruik 'all' voor meer." });
-        return;
-      }
-      
-      const fetched = await channel.messages.fetch({ limit: amount });
-      const deleted = await channel.bulkDelete(fetched, true);
-      
-      await interaction.editReply({ content: `✅ **${deleted.size}** berichten verwijderd uit ${channel}!` });
+      // Deny permissions in all channels
+      member.guild.channels.cache.forEach(async (channel) => {
+        try {
+          await channel.permissionOverwrites.edit(muteRole, {
+            SendMessages: false,
+            AddReactions: false,
+            Speak: false,
+            Connect: false,
+            RequestToSpeak: false
+          });
+        } catch (err) {}
+      });
     }
-  } catch (error) {
-    console.error("Clear error:", error);
     
-    if (error.code === 10008) {
-      await interaction.editReply({ content: "❌ Kon sommige berichten niet verwijderen (mogelijk ouder dan 14 dagen)." });
-    } else {
-      await interaction.editReply({ content: `❌ Er ging iets mis: ${error.message}` });
+    await member.roles.add(muteRole);
+    
+    // Send confirmation embed
+    const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+    if (channel && channel.isTextBased()) {
+      const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
+      const embed = new EmbedBuilder()
+        .setTitle("🔇 GEMUTE")
+        .setDescription(`${memberLink(member.id, member.displayName)}`)
+        .addFields(
+          { name: "⏱️ Duur", value: `${minutes} minuten`, inline: true },
+          { name: "📝 Reden", value: reason, inline: false },
+          { name: "📅 Datum", value: getCurrentDate(), inline: true }
+        )
+        .setColor(0xFFFFFF)
+        .setFooter({ text: "MK-13 Bot" })
+        .setTimestamp()
+        .setThumbnail(userAvatar);
+      await channel.send({ embeds: [embed] });
     }
+    
+    // Set timeout to auto-unmute
+    if (minutes > 0) {
+      const timeout = setTimeout(async () => {
+        await removeMute(member);
+        activeMutes.delete(member.id);
+      }, minutes * 60 * 1000);
+      
+      activeMutes.set(member.id, timeout);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Mute error:", error);
+    return false;
+  }
+}
+
+async function removeMute(member) {
+  try {
+    const muteRole = member.guild.roles.cache.find(r => r.name === "Gemute");
+    if (muteRole && member.roles.cache.has(muteRole.id)) {
+      await member.roles.remove(muteRole);
+      
+      // Clear timeout if exists
+      if (activeMutes.has(member.id)) {
+        clearTimeout(activeMutes.get(member.id));
+        activeMutes.delete(member.id);
+      }
+      
+      // Send unmute embed
+      const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+      if (channel && channel.isTextBased()) {
+        const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
+        const embed = new EmbedBuilder()
+          .setTitle("🔊 GEUNMUTE")
+          .setDescription(`${memberLink(member.id, member.displayName)}`)
+          .addFields(
+            { name: "📅 Datum", value: getCurrentDate(), inline: true }
+          )
+          .setColor(0xFFFFFF)
+          .setFooter({ text: "MK-13 Bot" })
+          .setTimestamp()
+          .setThumbnail(userAvatar);
+        await channel.send({ embeds: [embed] });
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error("Unmute error:", error);
+    return false;
   }
 }
 
@@ -467,10 +509,13 @@ async function handlePromote(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
   const guild = interaction.guild;
-  if (!hasAdminRole(executor)) {
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
   }
+  
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
@@ -513,10 +558,13 @@ async function handleDemote(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
   const guild = interaction.guild;
-  if (!hasAdminRole(executor)) {
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
   }
+  
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
@@ -558,10 +606,13 @@ async function handleWarn(interaction) {
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
-  if (!hasAdminRole(executor)) {
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
   }
+  
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
@@ -589,10 +640,13 @@ async function handleRemoveWarn(interaction) {
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
-  if (!hasAdminRole(executor)) {
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
   }
+  
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden in deze server!", flags: MessageFlags.Ephemeral });
@@ -625,10 +679,13 @@ async function handleAangenomen(interaction) {
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
   const guild = interaction.guild;
+  
+  // Check ADMIN role (special role)
   if (!hasAdminRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
   }
+  
   const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
   if (!rank) {
     const validRanks = ranks.map(r => r.name).join(", ");
@@ -663,10 +720,13 @@ async function handleOntslagen(interaction) {
   const targetUser = interaction.options.getUser("user");
   const reason = interaction.options.getString("reason");
   const executor = interaction.member;
-  if (!hasAdminRole(executor)) {
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
     return;
   }
+  
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   if (!targetMember) {
     await interaction.reply({ content: "❌ Gebruiker niet gevonden!", flags: MessageFlags.Ephemeral });
@@ -708,6 +768,14 @@ async function handleAfwezigheid(interaction) {
 }
 
 async function handleRefresh(interaction) {
+  const executor = interaction.member;
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  
   const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
   await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : 0 });
   try {
@@ -715,6 +783,146 @@ async function handleRefresh(interaction) {
     await interaction.editReply("✅ Ledenlijst bijgewerkt.");
   } catch (err) {
     await interaction.editReply(`❌ ${err.message}`);
+  }
+}
+
+async function handleClear(interaction) {
+  const numberInput = interaction.options.getString("number");
+  const channel = interaction.channel;
+  const executor = interaction.member;
+  
+  if (!channel) {
+    await interaction.reply({ content: "❌ Kan dit kanaal niet vinden!", ephemeral: true });
+    return;
+  }
+
+  // Check MOD role
+  if (!hasModRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
+    return;
+  }
+
+  // Check if bot has permission to manage messages
+  if (!channel.permissionsFor(client.user)?.has(PermissionFlagsBits.ManageMessages)) {
+    await interaction.reply({ content: "❌ Ik heb geen permissie om berichten te verwijderen!", ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    if (numberInput.toLowerCase() === "all") {
+      let deletedTotal = 0;
+      let fetched;
+      
+      do {
+        fetched = await channel.messages.fetch({ limit: 100 });
+        if (fetched.size === 0) break;
+        
+        const deleted = await channel.bulkDelete(fetched, true);
+        deletedTotal += deleted.size;
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } while (fetched.size === 100);
+      
+      await interaction.editReply({ content: `✅ **${deletedTotal}** berichten verwijderd uit ${channel}!` });
+    } else {
+      const amount = parseInt(numberInput);
+      if (isNaN(amount) || amount < 1) {
+        await interaction.editReply({ content: "❌ Voer een geldig getal in (1-100) of 'all'!" });
+        return;
+      }
+      
+      if (amount > 100) {
+        await interaction.editReply({ content: "❌ Je kunt maximaal 100 berichten tegelijk verwijderen! Gebruik 'all' voor meer." });
+        return;
+      }
+      
+      const fetched = await channel.messages.fetch({ limit: amount });
+      const deleted = await channel.bulkDelete(fetched, true);
+      
+      await interaction.editReply({ content: `✅ **${deleted.size}** berichten verwijderd uit ${channel}!` });
+    }
+  } catch (error) {
+    console.error("Clear error:", error);
+    
+    if (error.code === 10008) {
+      await interaction.editReply({ content: "❌ Kon sommige berichten niet verwijderen (mogelijk ouder dan 14 dagen)." });
+    } else {
+      await interaction.editReply({ content: `❌ ${error.message}` });
+    }
+  }
+}
+
+// ========================================
+// 🆕 MUTE & UNMUTE HANDLERS
+// ========================================
+
+async function handleMute(interaction) {
+  const targetUser = interaction.options.getUser("user");
+  const minutes = interaction.options.getInteger("minutes");
+  const executor = interaction.member;
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden!", ephemeral: true });
+    return;
+  }
+  
+  // Check if target is higher role
+  if (targetMember.roles.highest.position >= executor.roles.highest.position && executor.id !== interaction.guild.ownerId) {
+    await interaction.reply({ content: "❌ Je kunt deze gebruiker niet muten!", ephemeral: true });
+    return;
+  }
+  
+  // Check if already muted
+  const existingMuteRole = interaction.guild.roles.cache.find(r => r.name === "Gemute");
+  if (existingMuteRole && targetMember.roles.cache.has(existingMuteRole.id)) {
+    await interaction.reply({ content: "❌ Deze gebruiker is al gemute!", ephemeral: true });
+    return;
+  }
+  
+  await interaction.deferReply({ ephemeral: true });
+  
+  const success = await applyMute(targetMember, minutes, "Geen reden opgegeven");
+  
+  if (success) {
+    await interaction.editReply({ content: `✅ ${targetUser.username} is gemute voor ${minutes} minuten!` });
+  } else {
+    await interaction.editReply({ content: `❌ Er ging iets mis bij het muten van ${targetUser.username}.` });
+  }
+}
+
+async function handleUnmute(interaction) {
+  const targetUser = interaction.options.getUser("user");
+  const executor = interaction.member;
+  
+  // Check MOD role
+  if (!hasModRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  
+  const targetMember = await interaction.guild.members.fetch(targetUser.id);
+  if (!targetMember) {
+    await interaction.reply({ content: "❌ Gebruiker niet gevonden!", ephemeral: true });
+    return;
+  }
+  
+  await interaction.deferReply({ ephemeral: true });
+  
+  const success = await removeMute(targetMember);
+  
+  if (success) {
+    await interaction.editReply({ content: `✅ ${targetUser.username} is geunmute!` });
+  } else {
+    await interaction.editReply({ content: `❌ ${targetUser.username} was niet gemute of er ging iets mis.` });
   }
 }
 
@@ -775,6 +983,8 @@ client.on("interactionCreate", async (interaction) => {
   else if (interaction.commandName === "ontslagen") await handleOntslagen(interaction);
   else if (interaction.commandName === "afwezigheid") await handleAfwezigheid(interaction);
   else if (interaction.commandName === "clear") await handleClear(interaction);
+  else if (interaction.commandName === "mute") await handleMute(interaction);
+  else if (interaction.commandName === "unmute") await handleUnmute(interaction);
 });
 
 process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
