@@ -5,6 +5,7 @@ import {
   GatewayIntentBits,
   MessageFlags,
   SlashCommandBuilder,
+  PermissionFlagsBits,
 } from "discord.js";
 
 const server = http.createServer((req, res) => {
@@ -140,7 +141,7 @@ function getServerIcon(guild) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages],
 });
 
 let messageId = null;
@@ -208,6 +209,7 @@ async function registerCommands() {
     new SlashCommandBuilder().setName("aangenomen").setDescription("Neem een nieuw lid aan").addUserOption(option => option.setName("user").setDescription("Het lid dat wordt aangenomen").setRequired(true)).addStringOption(option => option.setName("rank").setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor aanname").setRequired(true)),
     new SlashCommandBuilder().setName("ontslagen").setDescription("Ontsla een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat ontslagen wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor ontslag").setRequired(true)),
     new SlashCommandBuilder().setName("afwezigheid").setDescription("Meld je afwezigheid (DD/MM/YYYY)").addStringOption(option => option.setName("reason").setDescription("Reden van afwezigheid").setRequired(true)).addStringOption(option => option.setName("from").setDescription("Vanaf (DD/MM/YYYY)").setRequired(true)).addStringOption(option => option.setName("til").setDescription("Tot (DD/MM/YYYY of ??)").setRequired(true)),
+    new SlashCommandBuilder().setName("clear").setDescription("Verwijder berichten in dit kanaal").addStringOption(option => option.setName("number").setDescription("Aantal berichten of 'all'").setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   ].map(cmd => cmd.toJSON());
 
   try {
@@ -223,6 +225,241 @@ async function registerCommands() {
     console.error("Failed to register commands:", err);
   }
 }
+
+// ========================================
+// 📨 EMBED FUNCTIONS - WITTE BALK, EMOJIS, ALLES ONDER ELKAAR
+// ========================================
+
+async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
+  const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📈 PROMOTIE")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📌 Van", value: oldRank, inline: false },
+      { name: "🎯 Naar", value: newRank, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(getServerIcon(guild));
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
+  const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📉 DEMOTIE")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📌 Van", value: oldRank, inline: false },
+      { name: "⬇️ Naar", value: newRank, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(getServerIcon(guild));
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendWarnEmbed(user, warnLevel, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("⚠️ WAARSCHUWING")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "⚠️ Niveau", value: warnLevel, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendRemoveWarnEmbed(user, warnLevel, reason) {
+  const channel = await client.channels.fetch(WARN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("✅ WAARSCHUWING INGETROKKEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "⚠️ Niveau", value: warnLevel, inline: false },
+      { name: "📝 Reden ingetrokken", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendAangenomenEmbed(guild, user, rank, reason) {
+  const channel = await client.channels.fetch(AANGENOMEN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("✅ AANGENOMEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "🎯 Rang", value: rank, inline: false },
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendOntslagenEmbed(user, reason) {
+  const channel = await client.channels.fetch(ONTSLAGEN_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+
+  const embed = new EmbedBuilder()
+    .setTitle("❌ ONTSLAGEN")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Datum", value: getCurrentDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
+  const channel = await client.channels.fetch(AFWEZIGHEID_CHANNEL_ID);
+  if (!channel || !channel.isTextBased()) return;
+
+  const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
+  const tilText = tilDate === "??" || tilDate === "Onbekend" || !tilDate ? "??" : tilDate;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📋 AFWEZIGHEID")
+    .setDescription(`${memberLink(user.id, user.displayName)}`)
+    .addFields(
+      { name: "📝 Reden", value: reason, inline: false },
+      { name: "📅 Vanaf", value: fromDate, inline: false },
+      { name: "📅 Tot", value: tilText, inline: false },
+      { name: "📅 Gemeld op", value: getFullDate(), inline: false }
+    )
+    .setColor(0xFFFFFF)
+    .setFooter({ text: "MK-13 Bot" })
+    .setTimestamp()
+    .setThumbnail(userAvatar);
+
+  await channel.send({ embeds: [embed] });
+}
+
+// ========================================
+// 🆕 /CLEAR COMMAND HANDLER
+// ========================================
+
+async function handleClear(interaction) {
+  const numberInput = interaction.options.getString("number");
+  const channel = interaction.channel;
+  
+  if (!channel) {
+    await interaction.reply({ content: "❌ Kan dit kanaal niet vinden!", ephemeral: true });
+    return;
+  }
+
+  // Check if user has permission to manage messages
+  if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+    await interaction.reply({ content: "❌ Je hebt geen permissie om berichten te verwijderen!", ephemeral: true });
+    return;
+  }
+
+  // Check if bot has permission to manage messages
+  if (!channel.permissionsFor(client.user)?.has(PermissionFlagsBits.ManageMessages)) {
+    await interaction.reply({ content: "❌ Ik heb geen permissie om berichten te verwijderen!", ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    if (numberInput.toLowerCase() === "all") {
+      // Delete all messages (in batches of 100)
+      let deletedTotal = 0;
+      let fetched;
+      
+      do {
+        fetched = await channel.messages.fetch({ limit: 100 });
+        if (fetched.size === 0) break;
+        
+        const deleted = await channel.bulkDelete(fetched, true);
+        deletedTotal += deleted.size;
+        
+        // Small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } while (fetched.size === 100);
+      
+      await interaction.editReply({ content: `✅ **${deletedTotal}** berichten verwijderd uit ${channel}!` });
+    } else {
+      // Delete specific number of messages
+      const amount = parseInt(numberInput);
+      if (isNaN(amount) || amount < 1) {
+        await interaction.editReply({ content: "❌ Voer een geldig getal in (1-100) of 'all'!" });
+        return;
+      }
+      
+      if (amount > 100) {
+        await interaction.editReply({ content: "❌ Je kunt maximaal 100 berichten tegelijk verwijderen! Gebruik 'all' voor meer." });
+        return;
+      }
+      
+      const fetched = await channel.messages.fetch({ limit: amount });
+      const deleted = await channel.bulkDelete(fetched, true);
+      
+      await interaction.editReply({ content: `✅ **${deleted.size}** berichten verwijderd uit ${channel}!` });
+    }
+  } catch (error) {
+    console.error("Clear error:", error);
+    
+    if (error.code === 10008) {
+      await interaction.editReply({ content: "❌ Kon sommige berichten niet verwijderen (mogelijk ouder dan 14 dagen)." });
+    } else {
+      await interaction.editReply({ content: `❌ Er ging iets mis: ${error.message}` });
+    }
+  }
+}
+
+// ========================================
+// 🎮 COMMAND HANDLERS
+// ========================================
 
 async function handlePromote(interaction) {
   const steps = interaction.options.getInteger("steps");
@@ -262,11 +499,7 @@ async function handlePromote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gepromoveerd van ${oldRankName} naar ${newRankName} (+${steps})!` });
-    const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("PROMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Van", value: oldRankName, inline: true }, { name: "Naar", value: newRankName, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
-      await channel.send({ embeds: [embed] });
-    }
+    await sendPromoEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Promote error:", error);
@@ -312,11 +545,7 @@ async function handleDemote(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is gedemoveerd van ${oldRankName} naar ${newRankName} (-${steps})!` });
-    const channel = await client.channels.fetch(DEMOTE_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const embed = new EmbedBuilder().setTitle("DEMOTIE").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Van", value: oldRankName, inline: true }, { name: "Naar", value: newRankName, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(getServerIcon(guild));
-      await channel.send({ embeds: [embed] });
-    }
+    await sendDemoteEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
   } catch (error) {
     console.error("Demote error:", error);
@@ -348,12 +577,7 @@ async function handleWarn(interaction) {
   try {
     await targetMember.roles.add(warnRole);
     await interaction.reply({ content: `✅ ${targetUser.username} heeft een ${warnLevel} gekregen!` });
-    const channel = await client.channels.fetch(WARN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("WAARSCHUWING").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Niveau", value: warnLevel, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFFA500).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendWarnEmbed(targetMember, warnLevel, reason);
   } catch (error) {
     console.error("Warn error:", error);
     if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
@@ -388,12 +612,7 @@ async function handleRemoveWarn(interaction) {
   try {
     await targetMember.roles.remove(warnRole);
     await interaction.reply({ content: `✅ ${targetUser.username} zijn ${warnLevel} is ingetrokken!` });
-    const channel = await client.channels.fetch(WARN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("WAARSCHUWING INGETROKKEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Niveau", value: warnLevel, inline: true }, { name: "Reden ingetrokken", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendRemoveWarnEmbed(targetMember, warnLevel, reason);
   } catch (error) {
     console.error("RemoveWarn error:", error);
     if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
@@ -432,13 +651,7 @@ async function handleAangenomen(interaction) {
     await targetMember.roles.add(roleToAdd);
     await targetMember.roles.add(lidRole);
     await interaction.reply({ content: `✅ ${targetUser.username} is aangenomen als ${rank.name}!` });
-    const channel = await client.channels.fetch(AANGENOMEN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      // Profielfoto van de aangenomen gebruiker ipv logo
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("AANGENOMEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Rang", value: rank.name, inline: true }, { name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0x00FF00).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendAangenomenEmbed(guild, targetMember, rank.name, reason);
     await safeUpdateList();
   } catch (error) {
     console.error("Aangenomen error:", error);
@@ -463,12 +676,7 @@ async function handleOntslagen(interaction) {
     await removeAllGangRoles(targetMember);
     await removeLidRole(targetMember);
     await interaction.reply({ content: `✅ ${targetUser.username} is ontslagen!` });
-    const channel = await client.channels.fetch(ONTSLAGEN_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = targetMember.user?.avatarURL() || targetMember.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const embed = new EmbedBuilder().setTitle("ONTSLAGEN").setDescription(`${memberLink(targetMember.id, targetMember.displayName)}`).addFields({ name: "Reden", value: reason, inline: false }, { name: "Datum", value: getCurrentDate(), inline: true }).setColor(0xFF0000).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendOntslagenEmbed(targetMember, reason);
     await safeUpdateList();
   } catch (error) {
     console.error("Ontslagen error:", error);
@@ -491,13 +699,7 @@ async function handleAfwezigheid(interaction) {
       await interaction.editReply({ content: "❌ Ongeldig formaat! Gebruik DD/MM/YYYY of ??" });
       return;
     }
-    const channel = await client.channels.fetch(AFWEZIGHEID_CHANNEL_ID);
-    if (channel && channel.isTextBased()) {
-      const userAvatar = member.user?.avatarURL() || member.displayAvatarURL() || PLACEHOLDER_IMAGE;
-      const tilText = tilDate === "??" || tilDate === "Onbekend" ? "??" : tilDate;
-      const embed = new EmbedBuilder().setTitle("AFWEZIGHEID").setDescription(`${memberLink(member.id, member.displayName)}`).addFields({ name: "Reden", value: reason, inline: false }, { name: "Vanaf", value: fromDate, inline: true }, { name: "Tot", value: tilText, inline: true }, { name: "Gemeld op", value: getFullDate(), inline: false }).setColor(0x00A5FF).setFooter({ text: "MK-13 Bot" }).setTimestamp().setThumbnail(userAvatar);
-      await channel.send({ embeds: [embed] });
-    }
+    await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
     await interaction.editReply({ content: `✅ ${member.user.username}, je afwezigheid is gemeld!` });
   } catch (error) {
     console.error("Afwezigheid error:", error);
@@ -572,6 +774,7 @@ client.on("interactionCreate", async (interaction) => {
   else if (interaction.commandName === "aangenomen") await handleAangenomen(interaction);
   else if (interaction.commandName === "ontslagen") await handleOntslagen(interaction);
   else if (interaction.commandName === "afwezigheid") await handleAfwezigheid(interaction);
+  else if (interaction.commandName === "clear") await handleClear(interaction);
 });
 
 process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
