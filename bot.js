@@ -35,8 +35,8 @@ const ONTSLAGEN_CHANNEL_ID = "1563302151642546286";
 // Role IDs for permissions
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1562120626766880810";
 const MOD_ROLE_ID = "1562120626766880810";
-const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1562120626766880810";
-const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1562120626766880810";
+const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1562120626754429040";
+const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1562120626754429039";
 const LID_ROLE_ID = "1562120626766880809";
 const LID_NAME_PREFIX = "𝙆 | ";
 const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/attachments/1563299912110575677/1563300098715418744/Kozlov.png?ex=6add202c&is=6adbceac&hm=9d10395d90b1d72e72c7b3a257263227bda7abba68c048e26a26efbb85022942&";
@@ -48,7 +48,7 @@ const ranks = [
   { name: "Зам | Underboss", roleId: process.env.ROLE_SUB_JEFE ?? "1562120626766880818", level: 8, emoji: "🎩" },
   { name: "Правая рука | Right Hand", roleId: process.env.ROLE_ENCARGADO ?? "1562120626766880817", level: 7, emoji: "🤝" },
   { name: "Ядро | Core", roleId: process.env.ROLE_SICARIO ?? "1562120626766880816", level: 6, emoji: "💎" },
-  { name: "Оператор | Operator", roleId: process.env.ROLE_ACTIVO ?? "1562120626766880814", level: 5, emoji: "🎯" },
+  { name: "Оператор | Operator", roleId: process.env.ROLE_ACTIVO ?? "1562120626766880815", level: 5, emoji: "🎯" },
   { name: "Солдат | Soldier", roleId: process.env.ROLE_CHEQUEOS ?? "1562120626766880814", level: 4, emoji: "🪖" },
   { name: "Ассоциированный | Associate", roleId: process.env.ROLE_COLABORADOR ?? "1562120626766880813", level: 3, emoji: "🔗" },
   { name: "Перспектива | Prospect", roleId: process.env.ROLE_SOLDADO ?? "1562120626766880812", level: 2, emoji: "🌱" },
