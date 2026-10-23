@@ -581,10 +581,7 @@ body { margin: 0; background: #313338; color: #dbdee1; font-family: 'gg sans', A
   return { html, messageCount: allMessages.length };
 }
 
-// ===== Ticket storage (in-memory, herstart-veilig via Discord channels) =====
-const activeTickets = new Map(); // channelId -> { userId, category, extraUsers, startedAt }
-
-function isTicketChannel(channelId) { return activeTickets.has(channelId); }
+const activeTickets = new Map();
 
 async function closeTicket(channel, closerId) {
   const ticket = activeTickets.get(channel.id);
@@ -614,6 +611,42 @@ async function closeTicket(channel, closerId) {
   return { ok: true };
 }
 
+// ===== Ticket panel =====
+function buildTicketPanelEmbed() {
+  return new EmbedBuilder()
+    .setTitle('🎫 Tickets')
+    .setColor(0x5865f2)
+    .setDescription('Kies hieronder een categorie om een ticket te openen.\n\n> 📝 **Sollicitatie** — Solliciteer bij Kozlov\n> 🤝 **Partner** — Vraag een partnership aan')
+    .setFooter({ text: FOOTER_TEXT })
+    .setTimestamp();
+}
+
+function buildTicketPanelMenu() {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('ticket_category_select')
+      .setPlaceholder('Kies een categorie...')
+      .addOptions([
+        { label: 'Sollicitatie', value: 'application', emoji: '📝', description: 'Solliciteer bij Kozlov' },
+        { label: 'Partner', value: 'partner', emoji: '🤝', description: 'Vraag een partnership aan' },
+      ])
+  );
+}
+
+async function setupTicketPanel() {
+  try {
+    const channel = await client.channels.fetch(TICKET_PANEL_CHANNEL_ID);
+    if (!channel || !channel.isTextBased()) return;
+    try {
+      const fetched = await channel.messages.fetch({ limit: 50 });
+      const botMsgs = fetched.filter(m => m.author.id === client.user.id);
+      for (const m of botMsgs.values()) await m.delete().catch(() => {});
+    } catch (e) {}
+    await channel.send({ embeds: [buildTicketPanelEmbed()], components: [buildTicketPanelMenu()] });
+    console.log('✅ Ticket panel geplaatst');
+  } catch (e) { console.error('Ticket panel error:', e.message); }
+}
+
 // ===== Ticket modals / embeds =====
 function buildApplicationModal() {
   const modal = new ModalBuilder().setCustomId('application_modal').setTitle('Sollicitatie Formulier');
@@ -639,44 +672,7 @@ function buildApplicationEmbed(userId, answers) {
     .setTimestamp();
 }
 
-function buildTicketPanelEmbed() {
-  return new EmbedBuilder()
-    .setTitle('🎫 Tickets')
-    .setColor(0x5865f2)
-    .setDescription('Kies hieronder een categorie om een ticket te openen.\n\n> 📝 **Sollicitatie** — Solliciteer bij Kozlov\n> 🤝 **Partner** — Vraag een partnership aan')
-    .setFooter({ text: FOOTER_TEXT })
-    .setTimestamp();
-}
-
-function buildTicketPanelMenu() {
-  return new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId('ticket_category_select')
-      .setPlaceholder('Kies een categorie...')
-      .addOptions([
-        { label: 'Sollicitatie', value: 'application', emoji: '📝', description: 'Solliciteer bij Kozlov' },
-        { label: 'Partner', value: 'partner', emoji: '🤝', description: 'Vraag een partnership aan' },
-      ])
-  );
-}
-
-// ===== Ticket panel opzetten =====
-async function setupTicketPanel() {
-  try {
-    const channel = await client.channels.fetch(TICKET_PANEL_CHANNEL_ID);
-    if (!channel || !channel.isTextBased()) return;
-    // Verwijder oude bot-berichten
-    try {
-      const fetched = await channel.messages.fetch({ limit: 50 });
-      const botMsgs = fetched.filter(m => m.author.id === client.user.id);
-      for (const m of botMsgs.values()) await m.delete().catch(() => {});
-    } catch (e) {}
-    await channel.send({ embeds: [buildTicketPanelEmbed()], components: [buildTicketPanelMenu()] });
-    console.log('✅ Ticket panel geplaatst');
-  } catch (e) { console.error('Ticket panel error:', e.message); }
-}
-
-// ===== Bestaande command registration =====
+// ===== Command registration =====
 async function registerCommands() {
   const commands = [
     new SlashCommandBuilder().setName("refresh").setDescription("Refresh de gang ledenlijst nu").addBooleanOption(o => o.setName("ephemeral").setDescription("Toon alleen aan jou").setRequired(false)),
@@ -691,7 +687,6 @@ async function registerCommands() {
     new SlashCommandBuilder().setName("mute").setDescription("Mute een lid").addUserOption(o => o.setName("user").setDescription("Lid").setRequired(true)).addIntegerOption(o => o.setName("minutes").setDescription("Minuten").setRequired(true).setMinValue(1).setMaxValue(1440)).addStringOption(o => o.setName("reason").setDescription("Reden").setRequired(false)),
     new SlashCommandBuilder().setName("unmute").setDescription("Unmute een lid").addUserOption(o => o.setName("user").setDescription("Lid").setRequired(true)).addStringOption(o => o.setName("reason").setDescription("Reden").setRequired(false)),
     new SlashCommandBuilder().setName("sollicitatieformulier").setDescription("Stuur het Kozlov sollicitatieformulier (alleen mods)"),
-    // ===== Ticket commands =====
     new SlashCommandBuilder().setName("add").setDescription("Voeg een gebruiker toe aan dit ticket").addUserOption(o => o.setName("user").setDescription("Gebruiker").setRequired(true)),
     new SlashCommandBuilder().setName("remove").setDescription("Verwijder een gebruiker uit dit ticket").addUserOption(o => o.setName("user").setDescription("Gebruiker").setRequired(true)),
     new SlashCommandBuilder().setName("close").setDescription("Sluit dit ticket"),
@@ -706,12 +701,11 @@ async function registerCommands() {
       console.log(`✅ Commands geregistreerd in ${guild.name}`);
     } else {
       await client.application?.commands.set(commands);
-      console.log("✅ Commands globaal geregistreerd");
     }
   } catch (err) { console.error("Failed to register commands:", err); }
 }
 
-// ===== Command handlers (bestaande) =====
+// ===== Command handlers =====
 async function handlePromote(interaction) {
   const steps = interaction.options.getInteger("steps");
   const targetUser = interaction.options.getUser("user");
@@ -722,8 +716,7 @@ async function handlePromote(interaction) {
   if (currentLevel === 0) return interaction.reply({ content: `❌ ${targetUser.username} heeft geen gang rol!`, flags: MessageFlags.Ephemeral });
   let newLevel = Math.min(currentLevel + steps, 9);
   if (newLevel === currentLevel) return interaction.reply({ content: `❌ Al hoogste rang!`, flags: MessageFlags.Ephemeral });
-  const newRoleId = getRoleIdByLevel(newLevel);
-  const newRole = interaction.guild.roles.cache.get(newRoleId);
+  const newRole = interaction.guild.roles.cache.get(getRoleIdByLevel(newLevel));
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
@@ -744,8 +737,7 @@ async function handleDemote(interaction) {
   if (currentLevel === 0) return interaction.reply({ content: `❌ ${targetUser.username} heeft geen gang rol!`, flags: MessageFlags.Ephemeral });
   let newLevel = Math.max(currentLevel - steps, 1);
   if (newLevel === currentLevel) return interaction.reply({ content: `❌ Al laagste rang!`, flags: MessageFlags.Ephemeral });
-  const newRoleId = getRoleIdByLevel(newLevel);
-  const newRole = interaction.guild.roles.cache.get(newRoleId);
+  const newRole = interaction.guild.roles.cache.get(getRoleIdByLevel(newLevel));
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
@@ -779,10 +771,9 @@ async function handleRemoveWarn(interaction) {
   if (!hasModRole(interaction.member)) return interaction.reply({ content: "❌ Je hebt niet de juiste rol!", flags: MessageFlags.Ephemeral });
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
   const warnRoleId = number === 1 ? WARN_ROLE_LEVEL1 : WARN_ROLE_LEVEL2;
-  const warnRole = interaction.guild.roles.cache.get(warnRoleId);
   if (!targetMember.roles.cache.has(warnRoleId)) return interaction.reply({ content: `❌ ${targetUser.username} heeft geen waarschuwing!`, flags: MessageFlags.Ephemeral });
   try {
-    await targetMember.roles.remove(warnRole);
+    await targetMember.roles.remove(interaction.guild.roles.cache.get(warnRoleId));
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendRemoveWarnEmbed(targetMember, number === 1 ? "1e Waarschuwing" : "2e Waarschuwing", reason);
     await interaction.deleteReply().catch(() => null);
@@ -796,12 +787,10 @@ async function handleAangenomen(interaction) {
   if (!hasAdminRole(interaction.member)) return interaction.reply({ content: "❌ Je hebt niet de juiste rol!", flags: MessageFlags.Ephemeral });
   const rank = ranks.find(r => r.name === rankName);
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
-  const roleToAdd = interaction.guild.roles.cache.get(rank.roleId);
-  const lidRole = interaction.guild.roles.cache.get(LID_ROLE_ID);
   try {
     await removeAllGangRoles(targetMember);
-    await targetMember.roles.add(roleToAdd);
-    await targetMember.roles.add(lidRole);
+    await targetMember.roles.add(interaction.guild.roles.cache.get(rank.roleId));
+    await targetMember.roles.add(interaction.guild.roles.cache.get(LID_ROLE_ID));
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendAangenomenEmbed(interaction.guild, targetMember, rank.name, reason);
     await safeUpdateList();
@@ -900,7 +889,7 @@ async function handleSollicitatieFormulier(interaction) {
   catch (error) { await interaction.editReply({ content: `❌ ${error.message}` }); }
 }
 
-// ===== Nieuwe ticket handlers =====
+// ===== Ticket handlers =====
 async function handleTicketCategorySelect(interaction) {
   await interaction.deferReply({ ephemeral: true });
   const choice = interaction.values[0];
@@ -950,8 +939,6 @@ async function handleTicketCategorySelect(interaction) {
       new ButtonBuilder().setCustomId('ticket_close').setLabel('Sluiten').setEmoji('🔒').setStyle(ButtonStyle.Danger)
     );
 
-    let components = [closeRow];
-
     if (cat.isApplication) {
       const startEmbed = new EmbedBuilder()
         .setTitle('📝 Sollicitatie')
@@ -964,7 +951,7 @@ async function handleTicketCategorySelect(interaction) {
       );
       await ticketChannel.send({ content: `<@${interaction.user.id}> <@&${TICKET_SUPPORT_ROLE_ID}>`, embeds: [embed, startEmbed], components: [openRow, closeRow] });
     } else {
-      await ticketChannel.send({ content: `<@${interaction.user.id}> <@&${TICKET_SUPPORT_ROLE_ID}>`, embeds: [embed], components });
+      await ticketChannel.send({ content: `<@${interaction.user.id}> <@&${TICKET_SUPPORT_ROLE_ID}>`, embeds: [embed], components: [closeRow] });
     }
 
     await interaction.editReply({ content: `Ticket aangemaakt: <#${ticketChannel.id}>` });
@@ -1021,7 +1008,7 @@ async function handleRemove(interaction) {
   const ticket = activeTickets.get(interaction.channelId);
   if (!ticket) return interaction.editReply({ content: 'Geen actief ticket.' });
   const targetUser = interaction.options.getUser('user');
-  if (targetUser.id === ticket.userId) return interaction.editReply({ content: '⚠️ Kan eigenaar niet verwijderen. Gebruik `/close`.' });
+  if (targetUser.id === ticket.userId) return interaction.editReply({ content: '⚠️ Kan eigenaar niet verwijderen.' });
   try {
     await interaction.channel.permissionOverwrites.delete(targetUser.id);
     ticket.extraUsers = ticket.extraUsers.filter(id => id !== targetUser.id);
@@ -1108,7 +1095,6 @@ client.on("guildMemberRemove", (member) => {
 });
 
 client.on("interactionCreate", async (interaction) => {
-  // Slash commands
   if (interaction.isChatInputCommand()) {
     const name = interaction.commandName;
     if (name === "refresh") await handleRefresh(interaction);
@@ -1131,19 +1117,16 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // Select menu
   if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_category_select') {
     await handleTicketCategorySelect(interaction);
     return;
   }
 
-  // Modals
   if (interaction.isModalSubmit() && interaction.customId === 'application_modal') {
     await handleApplicationModal(interaction);
     return;
   }
 
-  // Buttons
   if (interaction.isButton()) {
     if (interaction.customId === 'ticket_close') await handleTicketClose(interaction);
     else if (interaction.customId === 'application_open') await handleApplicationOpen(interaction);
