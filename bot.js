@@ -41,6 +41,8 @@ const LID_ROLE_ID = "1562120626766880809";
 const LID_NAME_PREFIX = "𝙆 | ";
 const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/attachments/1563299912110575677/1563300098715418744/Kozlov.png?ex=6add202c&is=6adbceac&hm=9d10395d90b1d72e72c7b3a257263227bda7abba68c048e26a26efbb85022942&";
 
+const FOOTER_TEXT = "Kozlov • vandaag om 23:53";
+
 const ranks = [
   { name: "Босс | Boss", roleId: process.env.ROLE_JEFE ?? "1562120626779721779", level: 9, emoji: "👑" },
   { name: "Зам | Underboss", roleId: process.env.ROLE_SUB_JEFE ?? "1562120626766880818", level: 8, emoji: "🎩" },
@@ -200,7 +202,7 @@ async function buildEmbed() {
     body += `\n`;
   }
   const description = `**Totaal: ${uniqueMembers.size} leden**\n\n${body}`;
-  return new EmbedBuilder().setTitle("🏴 Kozlov Ledenlijst").setColor(0x2b2b2b).setDescription(description.slice(0, 4096)).setFooter({ text: "🔄 Auto-update bij rolwijzigingen" }).setTimestamp();
+  return new EmbedBuilder().setTitle("🏴 Kozlov Ledenlijst").setColor(0x2b2b2b).setDescription(description.slice(0, 4096)).setFooter({ text: FOOTER_TEXT }).setTimestamp();
 }
 
 async function updateList() {
@@ -251,7 +253,7 @@ async function sendWelcomeMessage(member) {
         { name: "📅 Datum", value: getCurrentDate(), inline: true }
       )
       .setColor(0xFFFFFF)
-      .setFooter({ text: "Kozlov Bot" })
+      .setFooter({ text: FOOTER_TEXT })
       .setTimestamp()
       .setThumbnail(userAvatar);
 
@@ -279,7 +281,7 @@ async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(getServerIcon(guild));
 
@@ -300,7 +302,7 @@ async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(getServerIcon(guild));
 
@@ -322,7 +324,7 @@ async function sendWarnEmbed(user, warnLevel, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -344,7 +346,7 @@ async function sendRemoveWarnEmbed(user, warnLevel, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -366,7 +368,7 @@ async function sendAangenomenEmbed(guild, user, rank, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -387,7 +389,7 @@ async function sendOntslagenEmbed(user, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -411,7 +413,7 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
       { name: "📅 Gemeld op", value: getFullDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -433,7 +435,7 @@ async function sendMuteEmbed(user, minutes, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -454,7 +456,7 @@ async function sendUnmuteEmbed(user, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "Kozlov Bot" })
+    .setFooter({ text: FOOTER_TEXT })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -516,9 +518,8 @@ async function sendSollicitatieFormulier(interaction) {
         inline: false,
       }
     )
-    .setImage(PLACEHOLDER_IMAGE)
     .setFooter({
-      text: "Kozlov — Loyalty. Respect. Respect the hierarchy.",
+      text: FOOTER_TEXT,
       iconURL: getServerIcon(guild),
     })
     .setTimestamp();
