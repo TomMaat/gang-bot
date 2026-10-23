@@ -181,7 +181,7 @@ async function buildEmbed() {
     body += `\n`;
   }
   const description = `**Totaal: ${uniqueMembers.size} leden**\n\n${body}`;
-  return new EmbedBuilder().setTitle("🏴 Gang Ledenlijst").setColor(0x2b2b2b).setDescription(description.slice(0, 4096)).setFooter({ text: "🔄 Auto-update bij rolwijzigingen" }).setTimestamp();
+  return new EmbedBuilder().setTitle("🏴 Kozlov Ledenlijst").setColor(0x2b2b2b).setDescription(description.slice(0, 4096)).setFooter({ text: "🔄 Auto-update bij rolwijzigingen" }).setTimestamp();
 }
 
 async function updateList() {
@@ -226,13 +226,13 @@ async function sendWelcomeMessage(member) {
 
     const embed = new EmbedBuilder()
       .setTitle("👋 WELKOM!")
-      .setDescription(`Welkom ${memberLink(member.id, member.displayName)} in de **MK-13** Discord server!`)
+      .setDescription(`Welkom ${memberLink(member.id, member.displayName)} in de **Kozlov** Discord server!`)
       .addFields(
         { name: "📊 Totaal leden", value: `${memberCount}`, inline: true },
         { name: "📅 Datum", value: getCurrentDate(), inline: true }
       )
       .setColor(0xFFFFFF)
-      .setFooter({ text: "MK-13 Bot" })
+      .setFooter({ text: "Kozlov Bot" })
       .setTimestamp()
       .setThumbnail(userAvatar);
 
@@ -260,7 +260,7 @@ async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(getServerIcon(guild));
 
@@ -281,7 +281,7 @@ async function sendDemoteEmbed(guild, user, oldRank, newRank, reason, steps) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(getServerIcon(guild));
 
@@ -303,7 +303,7 @@ async function sendWarnEmbed(user, warnLevel, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -325,7 +325,7 @@ async function sendRemoveWarnEmbed(user, warnLevel, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -347,7 +347,7 @@ async function sendAangenomenEmbed(guild, user, rank, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -368,7 +368,7 @@ async function sendOntslagenEmbed(user, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -380,7 +380,7 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
   if (!channel || !channel.isTextBased()) return;
 
   const userAvatar = user.user?.avatarURL() || user.displayAvatarURL() || PLACEHOLDER_IMAGE;
-  const tilText = tilDate === "??" || tilDate === "Onbekend" || !tilDate ? "??" : tilDate;
+  const tilText = !tilDate || tilDate.trim().length === 0 ? "??" : tilDate;
 
   const embed = new EmbedBuilder()
     .setTitle("📋 AFWEZIGHEID")
@@ -392,7 +392,7 @@ async function sendAfwezigheidEmbed(user, reason, fromDate, tilDate) {
       { name: "📅 Gemeld op", value: getFullDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -414,7 +414,7 @@ async function sendMuteEmbed(user, minutes, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
@@ -435,11 +435,76 @@ async function sendUnmuteEmbed(user, reason) {
       { name: "📅 Datum", value: getCurrentDate(), inline: false }
     )
     .setColor(0xFFFFFF)
-    .setFooter({ text: "MK-13 Bot" })
+    .setFooter({ text: "Kozlov Bot" })
     .setTimestamp()
     .setThumbnail(userAvatar);
 
   await channel.send({ embeds: [embed] });
+}
+
+// ========================================
+// 📝 SOLLICITATIEFORMULIER EMBED
+// ========================================
+
+async function sendSollicitatieFormulier(interaction) {
+  const guild = interaction.guild;
+
+  const embed = new EmbedBuilder()
+    .setAuthor({
+      name: "KOZLOV",
+      iconURL: getServerIcon(guild),
+    })
+    .setTitle("📝 Sollicitatieformulier")
+    .setDescription(
+      "Vul alle vragen **eerlijk en volledig** in. We verwachten serieuze antwoorden en respect voor onze gang.\n\n" +
+      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    )
+    .setColor(0x8B0000)
+    .setThumbnail(getServerIcon(guild))
+    .addFields(
+      {
+        name: "**01 — Persoonlijke gegevens**",
+        value:
+          "> **Naam:**\n" +
+          "> **Leeftijd:**\n" +
+          "> **Discord:**\n" +
+          "> **IC-naam:**\n" +
+          "> **IC-leeftijd:**",
+        inline: false,
+      },
+      {
+        name: "**02 — Ervaring**",
+        value:
+          "> **Ervaring met Serious RP:**\n" +
+          "> **Eerdere gangervaring:**\n" +
+          "> **Activiteit per dag:**",
+        inline: false,
+      },
+      {
+        name: "**03 — Character**",
+        value:
+          "> **Totale waarde van je character:**\n" +
+          "> **Waarom wil je bij Kozlov?**\n" +
+          "> **Wat kun jij toevoegen aan Kozlov?**\n" +
+          "> **Waarom moeten wij jou aannemen?**",
+        inline: false,
+      },
+      {
+        name: "**04 — Akkoord**",
+        value:
+          "> **Ben je bekend met de serverregels?**\n" +
+          "> **Ben je bereid je aan de regels en hiërarchie van Kozlov te houden?**",
+        inline: false,
+      }
+    )
+    .setImage(PLACEHOLDER_IMAGE)
+    .setFooter({
+      text: "Kozlov — Loyalty. Respect. Respect the hierarchy.",
+      iconURL: getServerIcon(guild),
+    })
+    .setTimestamp();
+
+  await interaction.channel.send({ embeds: [embed] });
 }
 
 // ========================================
@@ -528,12 +593,42 @@ async function registerCommands() {
     new SlashCommandBuilder().setName("demote").setDescription("Demoveer een lid (1=-1 rank)").addIntegerOption(option => option.setName("steps").setDescription("Aantal stappen omlaag (1-9)").setRequired(true).setMinValue(1).setMaxValue(9)).addUserOption(option => option.setName("user").setDescription("Het lid dat gedemoveerd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor demotie").setRequired(true)),
     new SlashCommandBuilder().setName("warn").setDescription("Geef een waarschuwing aan een lid").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid dat gewaarschuwd wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor waarschuwing").setRequired(true)),
     new SlashCommandBuilder().setName("removewarn").setDescription("Trek een waarschuwing in").addIntegerOption(option => option.setName("number").setDescription("1 = 1e, 2 = 2e").setRequired(true).setMinValue(1).setMaxValue(2)).addUserOption(option => option.setName("user").setDescription("Het lid waarvan de waarschuwing wordt ingetrokken").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor intrekken").setRequired(true)),
-    new SlashCommandBuilder().setName("aangenomen").setDescription("Neem een nieuw lid aan").addUserOption(option => option.setName("user").setDescription("Het lid dat wordt aangenomen").setRequired(true)).addStringOption(option => option.setName("rank").setDescription("Rang: Jefe, Sub Jefe, Encargado, Sicario, Paro, Activo, Chequeos, Colaborador, Soldado, Recruta").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor aanname").setRequired(true)),
+    new SlashCommandBuilder()
+      .setName("aangenomen")
+      .setDescription("Neem een nieuw lid aan")
+      .addUserOption(option =>
+        option.setName("user")
+          .setDescription("Het lid dat wordt aangenomen")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("rank")
+          .setDescription("Kies de rang")
+          .setRequired(true)
+          .addChoices(...ranks.map(r => ({ name: r.name, value: r.name }))))
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden voor aanname")
+          .setRequired(true)),
     new SlashCommandBuilder().setName("ontslagen").setDescription("Ontsla een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat ontslagen wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor ontslag").setRequired(true)),
-    new SlashCommandBuilder().setName("afwezigheid").setDescription("Meld je afwezigheid (DD/MM/YYYY)").addStringOption(option => option.setName("reason").setDescription("Reden van afwezigheid").setRequired(true)).addStringOption(option => option.setName("from").setDescription("Vanaf (DD/MM/YYYY)").setRequired(true)).addStringOption(option => option.setName("til").setDescription("Tot (DD/MM/YYYY of ??)").setRequired(true)),
+    new SlashCommandBuilder()
+      .setName("afwezigheid")
+      .setDescription("Meld je afwezigheid")
+      .addStringOption(option =>
+        option.setName("reason")
+          .setDescription("Reden van afwezigheid")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("from")
+          .setDescription("Vanaf (DD/MM/YYYY)")
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName("til")
+          .setDescription("Tot (DD/MM/YYYY of vrije tekst zoals '??', '2 weken', 'onbekend')")
+          .setRequired(true)),
     new SlashCommandBuilder().setName("clear").setDescription("Verwijder berichten in dit kanaal").addStringOption(option => option.setName("number").setDescription("Aantal berichten of 'all'").setRequired(true)),
     new SlashCommandBuilder().setName("mute").setDescription("Mute een lid (kan niet praten of typen)").addUserOption(option => option.setName("user").setDescription("Het lid dat gemute wordt").setRequired(true)).addIntegerOption(option => option.setName("minutes").setDescription("Aantal minuten (1-1440)").setRequired(true).setMinValue(1).setMaxValue(1440)).addStringOption(option => option.setName("reason").setDescription("Reden voor mute").setRequired(false)),
     new SlashCommandBuilder().setName("unmute").setDescription("Unmute een lid").addUserOption(option => option.setName("user").setDescription("Het lid dat geunmute wordt").setRequired(true)).addStringOption(option => option.setName("reason").setDescription("Reden voor unmute").setRequired(false)),
+    new SlashCommandBuilder().setName("sollicitatieformulier").setDescription("Stuur het Kozlov sollicitatieformulier in dit kanaal (alleen mods)"),
   ].map(cmd => cmd.toJSON());
 
   try {
@@ -732,7 +827,7 @@ async function handleAangenomen(interaction) {
     return;
   }
   
-  const rank = ranks.find(r => r.name.toLowerCase() === rankName.toLowerCase());
+  const rank = ranks.find(r => r.name === rankName);
   if (!rank) {
     const validRanks = ranks.map(r => r.name).join(", ");
     await interaction.reply({ content: `❌ Ongeldige rang! Gebruik: ${validRanks}`, flags: MessageFlags.Ephemeral });
@@ -797,11 +892,11 @@ async function handleAfwezigheid(interaction) {
     const tilDate = interaction.options.getString("til");
     const member = interaction.member;
     if (!isValidDate(fromDate)) {
-      await interaction.editReply({ content: "❌ Ongeldig formaat! Gebruik DD/MM/YYYY" });
+      await interaction.editReply({ content: "❌ Ongeldig formaat bij 'from'! Gebruik DD/MM/YYYY" });
       return;
     }
-    if (tilDate !== "??" && tilDate !== "Onbekend" && !isValidDate(tilDate)) {
-      await interaction.editReply({ content: "❌ Ongeldig formaat! Gebruik DD/MM/YYYY of ??" });
+    if (!tilDate || tilDate.trim().length === 0) {
+      await interaction.editReply({ content: "❌ Vul iets in bij 'til' (datum of tekst zoals '??', '2 weken', 'onbekend')." });
       return;
     }
     await sendAfwezigheidEmbed(member, reason, fromDate, tilDate);
@@ -840,13 +935,11 @@ async function handleClear(interaction) {
     return;
   }
 
-  // Check MOD role
   if (!hasModRole(executor)) {
     await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", ephemeral: true });
     return;
   }
 
-  // Check if bot has permission to manage messages
   if (!channel.permissionsFor(client.user)?.has(PermissionFlagsBits.ManageMessages)) {
     await interaction.reply({ content: "❌ Ik heb geen permissie om berichten te verwijderen!", ephemeral: true });
     return;
@@ -964,6 +1057,25 @@ async function handleUnmute(interaction) {
   }
 }
 
+async function handleSollicitatieFormulier(interaction) {
+  const executor = interaction.member;
+  
+  if (!hasModRole(executor)) {
+    await interaction.reply({ content: "❌ Je hebt niet de juiste rol om dit commando te gebruiken!", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  
+  try {
+    await sendSollicitatieFormulier(interaction);
+    await interaction.editReply({ content: "✅ Sollicitatieformulier verzonden in dit kanaal!" });
+  } catch (error) {
+    console.error("Sollicitatieformulier error:", error);
+    await interaction.editReply({ content: `❌ ${error.message}` });
+  }
+}
+
 const watchedRoleIds = new Set(ranks.map(r => r.roleId));
 let pendingUpdate = null;
 
@@ -988,7 +1100,6 @@ client.once("ready", async () => {
   await safeUpdateList();
 });
 
-// Welcome message when a member joins
 client.on("guildMemberAdd", async (member) => {
   await sendWelcomeMessage(member);
 });
@@ -1028,6 +1139,7 @@ client.on("interactionCreate", async (interaction) => {
   else if (interaction.commandName === "clear") await handleClear(interaction);
   else if (interaction.commandName === "mute") await handleMute(interaction);
   else if (interaction.commandName === "unmute") await handleUnmute(interaction);
+  else if (interaction.commandName === "sollicitatieformulier") await handleSollicitatieFormulier(interaction);
 });
 
 process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
