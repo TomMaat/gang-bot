@@ -43,7 +43,7 @@ const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/attachments/15632999121105
 const ranks = [
   { name: "Босс | Boss", roleId: process.env.ROLE_JEFE ?? "1562120626779721779", level: 9, emoji: "👑" },
   { name: "Зам | Underboss", roleId: process.env.ROLE_SUB_JEFE ?? "1562120626766880818", level: 8, emoji: "🧠" },
-  { name: "Правая рука | Right Hand", roleId: process.env.ROLE_ENCARGADO ?? "1562120626766880816", level: 7, emoji: "🎯" },
+  { name: "Правая рука | Right Hand", roleId: process.env.ROLE_ENCARGADO ?? "1562120626766880817", level: 7, emoji: "🎯" },
   { name: "Ядро | Core", roleId: process.env.ROLE_SICARIO ?? "1562120626766880816", level: 6, emoji: "🔫" },
   { name: "Оператор | Operator", roleId: process.env.ROLE_ACTIVO ?? "1562120626766880814", level: 5, emoji: "⚡" },
   { name: "Солдат | Soldier", roleId: process.env.ROLE_CHEQUEOS ?? "1562120626766880814", level: 4, emoji: "📦" },
