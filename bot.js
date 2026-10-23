@@ -38,18 +38,19 @@ const MOD_ROLE_ID = "1562120626766880810";
 const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1562120626766880810";
 const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1562120626766880810";
 const LID_ROLE_ID = "1562120626766880809";
+const LID_NAME_PREFIX = "𝙆 | ";
 const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/attachments/1563299912110575677/1563300098715418744/Kozlov.png?ex=6add202c&is=6adbceac&hm=9d10395d90b1d72e72c7b3a257263227bda7abba68c048e26a26efbb85022942&";
 
 const ranks = [
   { name: "Босс | Boss", roleId: process.env.ROLE_JEFE ?? "1562120626779721779", level: 9, emoji: "👑" },
-  { name: "Зам | Underboss", roleId: process.env.ROLE_SUB_JEFE ?? "1562120626766880818", level: 8, emoji: "🧠" },
-  { name: "Правая рука | Right Hand", roleId: process.env.ROLE_ENCARGADO ?? "1562120626766880817", level: 7, emoji: "🎯" },
-  { name: "Ядро | Core", roleId: process.env.ROLE_SICARIO ?? "1562120626766880816", level: 6, emoji: "🔫" },
-  { name: "Оператор | Operator", roleId: process.env.ROLE_ACTIVO ?? "1562120626766880814", level: 5, emoji: "⚡" },
-  { name: "Солдат | Soldier", roleId: process.env.ROLE_CHEQUEOS ?? "1562120626766880814", level: 4, emoji: "📦" },
-  { name: "Ассоциированный | Associate", roleId: process.env.ROLE_COLABORADOR ?? "1562120626766880813", level: 3, emoji: "🤝" },
-  { name: "Перспектива | Prospect", roleId: process.env.ROLE_SOLDADO ?? "1562120626766880812", level: 2, emoji: "🪖" },
-  { name: "Тусовщик | Hangaround", roleId: process.env.ROLE_RECRUTA ?? "1562120626766880811", level: 1, emoji: "🆕" },
+  { name: "Зам | Underboss", roleId: process.env.ROLE_SUB_JEFE ?? "1562120626766880818", level: 8, emoji: "🎩" },
+  { name: "Правая рука | Right Hand", roleId: process.env.ROLE_ENCARGADO ?? "1562120626766880817", level: 7, emoji: "🤝" },
+  { name: "Ядро | Core", roleId: process.env.ROLE_SICARIO ?? "1562120626766880816", level: 6, emoji: "💎" },
+  { name: "Оператор | Operator", roleId: process.env.ROLE_ACTIVO ?? "1562120626766880814", level: 5, emoji: "🎯" },
+  { name: "Солдат | Soldier", roleId: process.env.ROLE_CHEQUEOS ?? "1562120626766880814", level: 4, emoji: "🪖" },
+  { name: "Ассоциированный | Associate", roleId: process.env.ROLE_COLABORADOR ?? "1562120626766880813", level: 3, emoji: "🔗" },
+  { name: "Перспектива | Prospect", roleId: process.env.ROLE_SOLDADO ?? "1562120626766880812", level: 2, emoji: "🌱" },
+  { name: "Тусовщик | Hangaround", roleId: process.env.ROLE_RECRUTA ?? "1562120626766880811", level: 1, emoji: "🚬" },
 ];
 
 const sortedRanks = [...ranks].sort((a, b) => b.level - a.level);
@@ -136,6 +137,24 @@ async function removeAllGangRoles(member) {
 async function removeLidRole(member) {
   if (member.roles.cache.has(LID_ROLE_ID)) {
     await member.roles.remove(LID_ROLE_ID);
+  }
+}
+
+async function applyLidPrefix(member) {
+  try {
+    if (member.user.bot) return;
+    if (member.roles.cache.has(LID_ROLE_ID)) {
+      if (!member.displayName.startsWith(LID_NAME_PREFIX)) {
+        await member.setNickname(`${LID_NAME_PREFIX}${member.displayName}`.slice(0, 32));
+      }
+    } else {
+      if (member.displayName.startsWith(LID_NAME_PREFIX)) {
+        const newName = member.displayName.slice(LID_NAME_PREFIX.length);
+        await member.setNickname(newName || null);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to update lid prefix:", error);
   }
 }
 
@@ -524,7 +543,6 @@ async function applyMute(member, minutes, reason) {
         reason: "Role for muted members"
       });
       
-      // Apply mute permissions to ALL channels
       for (const channel of member.guild.channels.cache.values()) {
         try {
           await channel.permissionOverwrites.edit(muteRole, {
@@ -538,24 +556,18 @@ async function applyMute(member, minutes, reason) {
             SendMessagesInThreads: false,
             AddReactions: false
           });
-        } catch (err) {
-          // Ignore errors for channels where bot can't edit permissions
-        }
+        } catch (err) {}
       }
     }
     
     await member.roles.add(muteRole);
-    
-    // Send mute embed
     await sendMuteEmbed(member, minutes, reason);
     
-    // Auto-unmute after minutes
     if (minutes > 0) {
       const timeout = setTimeout(async () => {
         await removeMute(member, "Automatisch einde mute");
         activeMutes.delete(member.id);
       }, minutes * 60 * 1000);
-      
       activeMutes.set(member.id, timeout);
     }
     
@@ -688,12 +700,14 @@ async function handlePromote(interaction) {
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    await interaction.reply({ content: `✅ ${targetUser.username} is gepromoveerd van ${oldRankName} naar ${newRankName} (+${steps})!` });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendPromoEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
+    await interaction.deleteReply().catch(() => null);
   } catch (error) {
     console.error("Promote error:", error);
-    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
+    if (interaction.deferred) await interaction.editReply({ content: `❌ ${error.message}` });
+    else if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -736,12 +750,14 @@ async function handleDemote(interaction) {
   try {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(newRole);
-    await interaction.reply({ content: `✅ ${targetUser.username} is gedemoveerd van ${oldRankName} naar ${newRankName} (-${steps})!` });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendDemoteEmbed(guild, targetMember, oldRankName, newRankName, reason, steps);
     await safeUpdateList();
+    await interaction.deleteReply().catch(() => null);
   } catch (error) {
     console.error("Demote error:", error);
-    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
+    if (interaction.deferred) await interaction.editReply({ content: `❌ ${error.message}` });
+    else if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -770,11 +786,13 @@ async function handleWarn(interaction) {
   }
   try {
     await targetMember.roles.add(warnRole);
-    await interaction.reply({ content: `✅ ${targetUser.username} heeft een ${warnLevel} gekregen!` });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendWarnEmbed(targetMember, warnLevel, reason);
+    await interaction.deleteReply().catch(() => null);
   } catch (error) {
     console.error("Warn error:", error);
-    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
+    if (interaction.deferred) await interaction.editReply({ content: `❌ ${error.message}` });
+    else if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -807,11 +825,13 @@ async function handleRemoveWarn(interaction) {
   }
   try {
     await targetMember.roles.remove(warnRole);
-    await interaction.reply({ content: `✅ ${targetUser.username} zijn ${warnLevel} is ingetrokken!` });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendRemoveWarnEmbed(targetMember, warnLevel, reason);
+    await interaction.deleteReply().catch(() => null);
   } catch (error) {
     console.error("RemoveWarn error:", error);
-    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
+    if (interaction.deferred) await interaction.editReply({ content: `❌ ${error.message}` });
+    else if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -848,12 +868,14 @@ async function handleAangenomen(interaction) {
     await removeAllGangRoles(targetMember);
     await targetMember.roles.add(roleToAdd);
     await targetMember.roles.add(lidRole);
-    await interaction.reply({ content: `✅ ${targetUser.username} is aangenomen als ${rank.name}!` });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendAangenomenEmbed(guild, targetMember, rank.name, reason);
     await safeUpdateList();
+    await interaction.deleteReply().catch(() => null);
   } catch (error) {
     console.error("Aangenomen error:", error);
-    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
+    if (interaction.deferred) await interaction.editReply({ content: `❌ ${error.message}` });
+    else if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -875,12 +897,14 @@ async function handleOntslagen(interaction) {
   try {
     await removeAllGangRoles(targetMember);
     await removeLidRole(targetMember);
-    await interaction.reply({ content: `✅ ${targetUser.username} is ontslagen!` });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendOntslagenEmbed(targetMember, reason);
     await safeUpdateList();
+    await interaction.deleteReply().catch(() => null);
   } catch (error) {
     console.error("Ontslagen error:", error);
-    if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
+    if (interaction.deferred) await interaction.editReply({ content: `❌ ${error.message}` });
+    else if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -1094,8 +1118,17 @@ client.once("ready", async () => {
     if (guild) {
       await guild.members.fetch();
       console.log(`✅ ${guild.members.cache.size} leden geladen`);
+
+      // Fix bestaande leden: pas prefix toe waar nodig
+      for (const member of guild.members.cache.values()) {
+        if (member.user.bot) continue;
+        await applyLidPrefix(member);
+      }
+      console.log("✅ Lid-prefixes bijgewerkt");
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error("Ready error:", err);
+  }
   await registerCommands();
   await safeUpdateList();
 });
@@ -1104,7 +1137,15 @@ client.on("guildMemberAdd", async (member) => {
   await sendWelcomeMessage(member);
 });
 
-client.on("guildMemberUpdate", (oldMember, newMember) => {
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+  // Lid-prefix onderhoud
+  const hadLid = oldMember.roles.cache.has(LID_ROLE_ID);
+  const hasLid = newMember.roles.cache.has(LID_ROLE_ID);
+  if (hadLid !== hasLid) {
+    await applyLidPrefix(newMember);
+  }
+
+  // Bestaande ledenlijst update
   const oldRoles = new Set(oldMember.roles.cache.keys());
   const newRoles = new Set(newMember.roles.cache.keys());
   let changed = false;
