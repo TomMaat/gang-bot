@@ -22,35 +22,34 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-const GANG_LIST_CHANNEL_ID = "1475784753264201740";
-const WELCOME_CHANNEL_ID = "1475784743395135559";
+const GANG_LIST_CHANNEL_ID = "1562120631288471679";
+const WELCOME_CHANNEL_ID = "1562120631288471675";
 const ROLE_CHANGE_DEBOUNCE_MS = 3000;
-const WARN_CHANNEL_ID = "1475784747392172178";
-const PROMO_CHANNEL_ID = "1478540121555996836";
-const DEMOTE_CHANNEL_ID = "1502446924702290053";
-const AFWEZIGHEID_CHANNEL_ID = "1475784751192477746";
-const AANGENOMEN_CHANNEL_ID = "1499166962973151372";
-const ONTSLAGEN_CHANNEL_ID = "1499167137334558790";
+const WARN_CHANNEL_ID = "1562127877623775242";
+const PROMO_CHANNEL_ID = "1562127760640573491";
+const DEMOTE_CHANNEL_ID = "1562127789455310960";
+const AFWEZIGHEID_CHANNEL_ID = "1562130183350390834";
+const AANGENOMEN_CHANNEL_ID = "1563302341455642674";
+const ONTSLAGEN_CHANNEL_ID = "1563302151642546286";
 
 // Role IDs for permissions
-const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1498067695692812528";
-const MOD_ROLE_ID = "1475784711166103716";
-const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1475784712399224833";
-const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1475784713376632832";
-const LID_ROLE_ID = "1475784707844341780";
-const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/embed/avatars/0.png";
+const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1562120626766880810";
+const MOD_ROLE_ID = "1562120626766880810";
+const WARN_ROLE_LEVEL1 = process.env.WARN_ROLE_LEVEL1 ?? "1562120626766880810";
+const WARN_ROLE_LEVEL2 = process.env.WARN_ROLE_LEVEL2 ?? "1562120626766880810";
+const LID_ROLE_ID = "1562120626766880809";
+const PLACEHOLDER_IMAGE = "https://cdn.discordapp.com/attachments/1563299912110575677/1563300098715418744/Kozlov.png?ex=6add202c&is=6adbceac&hm=9d10395d90b1d72e72c7b3a257263227bda7abba68c048e26a26efbb85022942&";
 
 const ranks = [
-  { name: "Jefe", roleId: process.env.ROLE_JEFE ?? "1475784693407420541", level: 10, emoji: "👑" },
-  { name: "Sub Jefe", roleId: process.env.ROLE_SUB_JEFE ?? "1475784695689252999", level: 9, emoji: "🧠" },
-  { name: "Encargado", roleId: process.env.ROLE_ENCARGADO ?? "1499735272299040798", level: 8, emoji: "🎯" },
-  { name: "Sicario", roleId: process.env.ROLE_SICARIO ?? "1475784696553144321", level: 7, emoji: "🔫" },
-  { name: "Paro", roleId: process.env.ROLE_PARO ?? "1478541802494627841", level: 6, emoji: "💰" },
-  { name: "Activo", roleId: process.env.ROLE_ACTIVO ?? "1499735621156081774", level: 5, emoji: "⚡" },
-  { name: "Chequeos", roleId: process.env.ROLE_CHEQUEOS ?? "1475784700982329407", level: 4, emoji: "📦" },
-  { name: "Colaborador", roleId: process.env.ROLE_COLABORADOR ?? "1499736095158435960", level: 3, emoji: "🤝" },
-  { name: "Soldado", roleId: process.env.ROLE_SOLDADO ?? "1475784699073921104", level: 2, emoji: "🪖" },
-  { name: "Recruta", roleId: process.env.ROLE_RECRUTA ?? "1475784699753267364", level: 1, emoji: "🆕" },
+  { name: "Босс | Boss", roleId: process.env.ROLE_JEFE ?? "1562120626779721779", level: 10, emoji: "👑" },
+  { name: "Зам | Underboss", roleId: process.env.ROLE_SUB_JEFE ?? "1562120626766880818", level: 9, emoji: "🧠" },
+  { name: "Правая рука | Right Hand", roleId: process.env.ROLE_ENCARGADO ?? "1562120626766880816", level: 8, emoji: "🎯" },
+  { name: "Ядро | Core", roleId: process.env.ROLE_SICARIO ?? "1562120626766880815", level: 7, emoji: "🔫" },
+  { name: "Оператор | Operator", roleId: process.env.ROLE_ACTIVO ?? "1562120626766880814", level: 5, emoji: "⚡" },
+  { name: "Солдат | Soldier", roleId: process.env.ROLE_CHEQUEOS ?? "1562120626766880814", level: 4, emoji: "📦" },
+  { name: "Ассоциированный | Associate", roleId: process.env.ROLE_COLABORADOR ?? "1562120626766880813", level: 3, emoji: "🤝" },
+  { name: "Перспектива | Prospect", roleId: process.env.ROLE_SOLDADO ?? "1562120626766880812", level: 2, emoji: "🪖" },
+  { name: "Тусовщик | Hangaround", roleId: process.env.ROLE_RECRUTA ?? "1562120626766880811", level: 1, emoji: "🆕" },
 ];
 
 const sortedRanks = [...ranks].sort((a, b) => b.level - a.level);
