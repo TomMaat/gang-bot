@@ -113,7 +113,7 @@ const ranks = [
 
 const sortedRanks = [...ranks].sort((a, b) => b.level - a.level);
 
-// ===== Bestaande helpers =====
+// ===== Helpers =====
 function getNumber(name) {
   const match = name.match(/\d+/);
   return match ? parseInt(match[0], 10) : 999;
@@ -252,7 +252,6 @@ async function safeUpdateList() {
   try { await updateList(); } catch (err) { console.error("Failed to update gang list:", err); }
 }
 
-// ===== Welcome =====
 async function sendWelcomeMessage(member) {
   try {
     const channel = await client.channels.fetch(WELCOME_CHANNEL_ID);
@@ -271,7 +270,6 @@ async function sendWelcomeMessage(member) {
   } catch (error) { console.error("Welcome message error:", error); }
 }
 
-// ===== Bestaande embed functies =====
 async function sendPromoEmbed(guild, user, oldRank, newRank, reason, steps) {
   const channel = await client.channels.fetch(PROMO_CHANNEL_ID);
   if (!channel || !channel.isTextBased()) return;
@@ -611,7 +609,6 @@ async function closeTicket(channel, closerId) {
   return { ok: true };
 }
 
-// ===== Ticket panel =====
 function buildTicketPanelEmbed() {
   return new EmbedBuilder()
     .setTitle('🎫 Tickets')
@@ -647,7 +644,6 @@ async function setupTicketPanel() {
   } catch (e) { console.error('Ticket panel error:', e.message); }
 }
 
-// ===== Ticket modals / embeds =====
 function buildApplicationModal() {
   const modal = new ModalBuilder().setCustomId('application_modal').setTitle('Sollicitatie Formulier');
   for (const q of APPLICATION_QUESTIONS) {
@@ -897,14 +893,12 @@ async function handleTicketCategorySelect(interaction) {
 
   try {
     const guild = interaction.guild;
-
-    // Fetch fresh member + role objects om "not cached" errors te voorkomen
     const ticketOwner = await guild.members.fetch(interaction.user.id);
-    const supportRole = await guild.roles.fetch(TICKET_SUPPORT_ROLE_ID);
+    const supportRole = await guild.roles.fetch(TICKET_SUPPORT_ROLE_ID).catch(() => null);
     const everyoneRole = guild.roles.everyone;
 
     if (!supportRole) {
-      return interaction.editReply({ content: '⚠️ Ticket support rol niet gevonden. Neem contact op met een admin.' });
+      return interaction.editReply({ content: `⚠️ Ticket support rol (${TICKET_SUPPORT_ROLE_ID}) niet gevonden.` });
     }
 
     const existing = [...activeTickets.entries()].find(([_, t]) => t.userId === interaction.user.id);
@@ -970,10 +964,14 @@ async function handleTicketCategorySelect(interaction) {
   }
 }
 
+// ===== FIX: showModal direct, geen checks die tijd kosten =====
 async function handleApplicationOpen(interaction) {
-  const ticket = activeTickets.get(interaction.channelId);
-  if (!ticket || ticket.userId !== interaction.user.id) return interaction.reply({ content: 'Dit is niet jouw ticket.', ephemeral: true });
-  await interaction.showModal(buildApplicationModal());
+  // Toon de modal DIRECT — dit is de enige echte stap
+  try {
+    await interaction.showModal(buildApplicationModal());
+  } catch (error) {
+    console.error('ShowModal error:', error);
+  }
 }
 
 async function handleApplicationModal(interaction) {
