@@ -754,8 +754,7 @@ async function handleWarn(interaction) {
   const reason = interaction.options.getString("reason");
   if (!hasModRole(interaction.member)) return interaction.reply({ content: "❌ Je hebt niet de juiste rol!", flags: MessageFlags.Ephemeral });
   const targetMember = await interaction.guild.members.fetch(targetUser.id);
-  const warnRoleId = number === 1 ? WARN_ROLE_LEVEL1 : WARN_ROLE_LEVEL2;
-  const warnRole = interaction.guild.roles.cache.get(warnRoleId);
+  const warnRole = interaction.guild.roles.cache.get(number === 1 ? WARN_ROLE_LEVEL1 : WARN_ROLE_LEVEL2);
   try {
     await targetMember.roles.add(warnRole);
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -898,6 +897,16 @@ async function handleTicketCategorySelect(interaction) {
 
   try {
     const guild = interaction.guild;
+
+    // Fetch fresh member + role objects om "not cached" errors te voorkomen
+    const ticketOwner = await guild.members.fetch(interaction.user.id);
+    const supportRole = await guild.roles.fetch(TICKET_SUPPORT_ROLE_ID);
+    const everyoneRole = guild.roles.everyone;
+
+    if (!supportRole) {
+      return interaction.editReply({ content: '⚠️ Ticket support rol niet gevonden. Neem contact op met een admin.' });
+    }
+
     const existing = [...activeTickets.entries()].find(([_, t]) => t.userId === interaction.user.id);
     if (existing) return interaction.editReply({ content: `Je hebt al een open ticket: <#${existing[0]}>` });
 
@@ -907,13 +916,13 @@ async function handleTicketCategorySelect(interaction) {
       type: ChannelType.GuildText,
       parent: cat.categoryId,
       permissionOverwrites: [
-        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.user.id, allow: [
+        { id: everyoneRole, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: ticketOwner, allow: [
           PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages,
           PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles,
         ]},
-        { id: TICKET_SUPPORT_ROLE_ID, allow: SUPPORT_TICKET_PERMS },
-        { id: client.user.id, allow: [
+        { id: supportRole, allow: SUPPORT_TICKET_PERMS },
+        { id: client.user, allow: [
           PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages,
           PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory,
         ]},
@@ -992,8 +1001,10 @@ async function handleAdd(interaction) {
   const ticket = activeTickets.get(interaction.channelId);
   if (!ticket) return interaction.editReply({ content: 'Geen actief ticket.' });
   const targetUser = interaction.options.getUser('user');
+
   try {
-    await interaction.channel.permissionOverwrites.edit(targetUser.id, {
+    const targetMember = await interaction.guild.members.fetch(targetUser.id);
+    await interaction.channel.permissionOverwrites.edit(targetMember, {
       ViewChannel: true, SendMessages: true, ReadMessageHistory: true, AttachFiles: true,
     });
     if (!ticket.extraUsers.includes(targetUser.id)) ticket.extraUsers.push(targetUser.id);
@@ -1009,8 +1020,10 @@ async function handleRemove(interaction) {
   if (!ticket) return interaction.editReply({ content: 'Geen actief ticket.' });
   const targetUser = interaction.options.getUser('user');
   if (targetUser.id === ticket.userId) return interaction.editReply({ content: '⚠️ Kan eigenaar niet verwijderen.' });
+
   try {
-    await interaction.channel.permissionOverwrites.delete(targetUser.id);
+    const targetMember = await interaction.guild.members.fetch(targetUser.id);
+    await interaction.channel.permissionOverwrites.delete(targetMember);
     ticket.extraUsers = ticket.extraUsers.filter(id => id !== targetUser.id);
     await interaction.channel.send({ content: `➖ <@${targetUser.id}> is verwijderd door <@${interaction.user.id}>.` });
     await interaction.editReply({ content: `✅ <@${targetUser.id}> verwijderd.` });
@@ -1061,6 +1074,7 @@ client.once("ready", async () => {
     const guild = client.guilds.cache.first();
     if (guild) {
       await guild.members.fetch();
+      await guild.roles.fetch();
       for (const member of guild.members.cache.values()) {
         if (member.user.bot) continue;
         await applyLidPrefix(member);
