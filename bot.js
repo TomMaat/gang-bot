@@ -964,13 +964,15 @@ async function handleTicketCategorySelect(interaction) {
   }
 }
 
-// ===== FIX: showModal direct, geen checks die tijd kosten =====
+// ===== FIX: Toon de modal DIRECT, zonder enige check of await =====
 async function handleApplicationOpen(interaction) {
-  // Toon de modal DIRECT — dit is de enige echte stap
   try {
     await interaction.showModal(buildApplicationModal());
   } catch (error) {
     console.error('ShowModal error:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ Kon het formulier niet openen.', ephemeral: true }).catch(() => {});
+    }
   }
 }
 
@@ -1107,6 +1109,24 @@ client.on("guildMemberRemove", (member) => {
 });
 
 client.on("interactionCreate", async (interaction) => {
+  // BELANGRIJK: Buttons worden EERST afgehandeld (vóór commands) om timeouts te voorkomen
+  if (interaction.isButton()) {
+    if (interaction.customId === 'application_open') {
+      return await handleApplicationOpen(interaction);
+    }
+    if (interaction.customId === 'ticket_close') {
+      return await handleTicketClose(interaction);
+    }
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_category_select') {
+    return await handleTicketCategorySelect(interaction);
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === 'application_modal') {
+    return await handleApplicationModal(interaction);
+  }
+
   if (interaction.isChatInputCommand()) {
     const name = interaction.commandName;
     if (name === "refresh") await handleRefresh(interaction);
@@ -1127,21 +1147,6 @@ client.on("interactionCreate", async (interaction) => {
     else if (name === "rename") await handleRename(interaction);
     else if (name === "ticketpanel") await handleTicketPanel(interaction);
     return;
-  }
-
-  if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_category_select') {
-    await handleTicketCategorySelect(interaction);
-    return;
-  }
-
-  if (interaction.isModalSubmit() && interaction.customId === 'application_modal') {
-    await handleApplicationModal(interaction);
-    return;
-  }
-
-  if (interaction.isButton()) {
-    if (interaction.customId === 'ticket_close') await handleTicketClose(interaction);
-    else if (interaction.customId === 'application_open') await handleApplicationOpen(interaction);
   }
 });
 
