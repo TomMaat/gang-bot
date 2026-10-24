@@ -65,11 +65,10 @@ const TICKET_CATEGORIES = {
   },
 };
 
-// Let op: Discord heeft een harde limiet van 45 tekens voor labels
+// Nu 5 vragen (Discord limiet is 5 per modal)
 const APPLICATION_QUESTIONS = [
   { id: "naam", label: "Wat is je naam?", placeholder: "Je volledige naam", style: TextInputStyle.Short, max: 100 },
   { id: "leeftijd", label: "Hoe oud ben je?", placeholder: "Bijv. 17", style: TextInputStyle.Short, max: 10 },
-  { id: "discord", label: "Wat is je Discord tag?", placeholder: "username#0000 of @username", style: TextInputStyle.Short, max: 100 },
   { id: "ervaring", label: "Heb je ervaring met dit werk?", placeholder: "Vertel kort over je ervaring", style: TextInputStyle.Paragraph, max: 500 },
   { id: "motivatie", label: "Waarom wil je bij ons team?", placeholder: "Je motivatie", style: TextInputStyle.Paragraph, max: 500 },
   { id: "beschikbaarheid", label: "Hoeveel uur per week beschikbaar?", placeholder: "Bijv. 20 uur", style: TextInputStyle.Short, max: 50 },
