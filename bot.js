@@ -1208,7 +1208,7 @@ async function handleAppRankSelect(interaction, userId) {
   
   if (!rank) return;
 
-  const reason = "Sollicitatie/Overstap wel goed gespeld dan";
+  const reason = "Sollicitatie/Overstap";
   const targetUser = await client.users.fetch(userId).catch(() => null);
   const targetMember = await interaction.guild.members.fetch(userId).catch(() => null);
 
