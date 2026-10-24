@@ -65,14 +65,54 @@ const TICKET_CATEGORIES = {
   },
 };
 
-// Nu 5 vragen (Discord limiet is 5 per modal)
-const APPLICATION_QUESTIONS = [
-  { id: "naam", label: "Wat is je naam?", placeholder: "Je volledige naam", style: TextInputStyle.Short, max: 100 },
-  { id: "leeftijd", label: "Hoe oud ben je?", placeholder: "Bijv. 17", style: TextInputStyle.Short, max: 10 },
-  { id: "ervaring", label: "Heb je ervaring met dit werk?", placeholder: "Vertel kort over je ervaring", style: TextInputStyle.Paragraph, max: 500 },
-  { id: "motivatie", label: "Waarom wil je bij ons team?", placeholder: "Je motivatie", style: TextInputStyle.Paragraph, max: 500 },
-  { id: "beschikbaarheid", label: "Hoeveel uur per week beschikbaar?", placeholder: "Bijv. 20 uur", style: TextInputStyle.Short, max: 50 },
-];
+// ===== SOLLICITATIE FORMULIER DEFINITIE (5 KOPJES) =====
+const APPLICATION_PARTS = {
+  part1: {
+    title: "1/5: Persoonlijke Gegevens",
+    emoji: "👤",
+    questions: [
+      { id: "naam", label: "Naam", placeholder: "Je volledige naam", style: TextInputStyle.Short, max: 100 },
+      { id: "leeftijd", label: "Leeftijd", placeholder: "Bijv. 17", style: TextInputStyle.Short, max: 10 },
+      { id: "discord", label: "Discord tag", placeholder: "username#0000 of @username", style: TextInputStyle.Short, max: 100 },
+      { id: "ic_naam", label: "IC-naam", placeholder: "Je in-game naam", style: TextInputStyle.Short, max: 100 },
+      { id: "ic_leeftijd", label: "IC-leeftijd", placeholder: "Bijv. 24", style: TextInputStyle.Short, max: 10 }
+    ]
+  },
+  part2: {
+    title: "2/5: Ervaring",
+    emoji: "🎮",
+    questions: [
+      { id: "rp_ervaring", label: "Ervaring met Serious RP", placeholder: "Vertel kort...", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "gang_ervaring", label: "Eerdere gangervaring", placeholder: "Vertel kort...", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "activiteit", label: "Activiteit per dag (uren)", placeholder: "Bijv. 4 uur", style: TextInputStyle.Short, max: 50 }
+    ]
+  },
+  part3: {
+    title: "3/5: Character",
+    emoji: "💼",
+    questions: [
+      { id: "waarde", label: "Totale waarde character", placeholder: "Bijv. €500.000", style: TextInputStyle.Short, max: 50 },
+      { id: "waarom", label: "Waarom wil je bij Kozlov?", placeholder: "Je motivatie...", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "toevoegen", label: "Wat kun jij toevoegen?", placeholder: "Je skills...", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "waarom_jou", label: "Waarom moeten wij jou aannemen?", placeholder: "Overtuig ons...", style: TextInputStyle.Paragraph, max: 500 }
+    ]
+  },
+  part4: {
+    title: "4/5: Akkoord",
+    emoji: "📜",
+    questions: [
+      { id: "serverregels", label: "Bekend met serverregels? (Ja/Nee)", placeholder: "Ja of Nee", style: TextInputStyle.Short, max: 10 },
+      { id: "regels_hiërarchie", label: "Akkoord met regels/hiërarchie?", placeholder: "Ja of Nee", style: TextInputStyle.Short, max: 10 }
+    ]
+  },
+  part5: {
+    title: "5/5: Overig",
+    emoji: "💬",
+    questions: [
+      { id: "extra", label: "Is er nog iets dat we moeten weten?", placeholder: "Optioneel...", style: TextInputStyle.Paragraph, max: 500, required: false }
+    ]
+  }
+};
 
 const SUPPORT_TICKET_PERMS = [
   PermissionFlagsBits.ViewChannel,
@@ -203,6 +243,7 @@ const client = new Client({
 });
 
 let messageId = null;
+const activeApplications = new Map(); // Slaat antwoorden op tijdens het invullen
 
 async function buildEmbed() {
   const guild = client.guilds.cache.first();
@@ -605,6 +646,7 @@ async function closeTicket(channel, closerId) {
     await transcriptChannel.send({ embeds: [embed], files: [attachment] });
   } catch (e) { console.error('Transcript error:', e.message); }
   activeTickets.delete(channel.id);
+  activeApplications.delete(channel.id);
   setTimeout(async () => { try { await channel.delete('Ticket gesloten'); } catch (e) {} }, 5000);
   return { ok: true };
 }
@@ -644,30 +686,95 @@ async function setupTicketPanel() {
   } catch (e) { console.error('Ticket panel error:', e.message); }
 }
 
-function buildApplicationModal() {
-  const modal = new ModalBuilder().setCustomId('application_modal').setTitle('Sollicitatie Formulier');
-  for (const q of APPLICATION_QUESTIONS) {
+// ===== NIEUW SOLLICITATIE SYSTEEM =====
+function buildApplicationStartEmbed() {
+  return new EmbedBuilder()
+    .setTitle('📝 Sollicitatie Formulier')
+    .setColor(0xf39c12)
+    .setDescription(
+      'Welkom bij je sollicitatie voor **Kozlov**!\n\n' +
+      'We hebben je sollicitatie opgesplitst in **5 delen** (vanwege Discord-limieten).\n' +
+      'Klik op de knoppen hieronder om elk deel in te vullen.\n\n' +
+      '👤 **Deel 1** — Persoonlijke gegevens\n' +
+      '🎮 **Deel 2** — Ervaring\n' +
+      '💼 **Deel 3** — Character\n' +
+      '📜 **Deel 4** — Akkoord\n' +
+      '💬 **Deel 5** — Overig\n\n' +
+      'Zodra je alle 5 de delen hebt ingevuld, wordt je sollicitatie automatisch naar de staff gestuurd!'
+    )
+    .setFooter({ text: FOOTER_TEXT })
+    .setTimestamp();
+}
+
+function buildApplicationButtons(channelId) {
+  const data = activeApplications.get(channelId) || { part1: false, part2: false, part3: false, part4: false, part5: false };
+  
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`app_part1_${channelId}`)
+      .setLabel('Deel 1')
+      .setEmoji(data.part1 ? '✅' : '👤')
+      .setStyle(data.part1 ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`app_part2_${channelId}`)
+      .setLabel('Deel 2')
+      .setEmoji(data.part2 ? '✅' : '🎮')
+      .setStyle(data.part2 ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`app_part3_${channelId}`)
+      .setLabel('Deel 3')
+      .setEmoji(data.part3 ? '✅' : '💼')
+      .setStyle(data.part3 ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`app_part4_${channelId}`)
+      .setLabel('Deel 4')
+      .setEmoji(data.part4 ? '✅' : '📜')
+      .setStyle(data.part4 ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`app_part5_${channelId}`)
+      .setLabel('Deel 5')
+      .setEmoji(data.part5 ? '✅' : '💬')
+      .setStyle(data.part5 ? ButtonStyle.Success : ButtonStyle.Secondary)
+  );
+  
+  return row1;
+}
+
+function buildApplicationModal(partKey) {
+  const part = APPLICATION_PARTS[partKey];
+  const modal = new ModalBuilder().setCustomId(`app_modal_${partKey}`).setTitle(part.title);
+  
+  for (const q of part.questions) {
     const input = new TextInputBuilder()
       .setCustomId(q.id)
       .setLabel(q.label.slice(0, 45))
       .setPlaceholder(q.placeholder.slice(0, 100))
       .setStyle(q.style)
-      .setRequired(true)
+      .setRequired(q.required !== false)
       .setMaxLength(q.max);
     modal.addComponents(new ActionRowBuilder().addComponents(input));
   }
   return modal;
 }
 
-function buildApplicationEmbed(userId, answers) {
-  const fields = APPLICATION_QUESTIONS.map(q => ({
-    name: q.label, value: answers[q.id] || '*Niet ingevuld*', inline: false,
-  }));
+function buildFinalApplicationEmbed(userId, answers) {
+  const p1 = answers.part1 || {};
+  const p2 = answers.part2 || {};
+  const p3 = answers.part3 || {};
+  const p4 = answers.part4 || {};
+  const p5 = answers.part5 || {};
+
   return new EmbedBuilder()
     .setTitle('📝 Sollicitatie Ingevuld')
     .setColor(0xf39c12)
-    .setDescription(`<@${userId}> heeft het sollicitatieformulier ingevuld.`)
-    .addFields(fields)
+    .setDescription(`<@${userId}> heeft de sollicitatie volledig ingevuld.`)
+    .addFields(
+      { name: '👤 Deel 1: Persoonlijke Gegevens', value: `**Naam:** ${p1.naam || '-'}\n**Leeftijd:** ${p1.leeftijd || '-'}\n**Discord:** ${p1.discord || '-'}\n**IC Naam:** ${p1.ic_naam || '-'}\n**IC Leeftijd:** ${p1.ic_leeftijd || '-'}`, inline: false },
+      { name: '🎮 Deel 2: Ervaring', value: `**Serious RP:** ${p2.rp_ervaring || '-'}\n**Gang Ervaring:** ${p2.gang_ervaring || '-'}\n**Activiteit:** ${p2.activiteit || '-'}`, inline: false },
+      { name: '💼 Deel 3: Character', value: `**Waarde:** ${p3.waarde || '-'}\n**Waarom Kozlov:** ${p3.waarom || '-'}\n**Toevoeging:** ${p3.toevoegen || '-'}\n**Waarom aannemen:** ${p3.waarom_jou || '-'}`, inline: false },
+      { name: '📜 Deel 4: Akkoord', value: `**Bekend met regels:** ${p4.serverregels || '-'}\n**Akkoord hiërarchie:** ${p4.regels_hiërarchie || '-'}`, inline: false },
+      { name: '💬 Deel 5: Overig', value: `${p5.extra || 'Niets opgegeven'}`, inline: false }
+    )
     .setFooter({ text: FOOTER_TEXT })
     .setTimestamp();
 }
@@ -947,16 +1054,20 @@ async function handleTicketCategorySelect(interaction) {
     );
 
     if (cat.isApplication) {
-      const startEmbed = new EmbedBuilder()
-        .setTitle('📝 Sollicitatie')
-        .setColor(0xf39c12)
-        .setDescription('Welkom bij je sollicitatie!\n\nKlik op de knop hieronder om het formulier in te vullen.')
-        .setFooter({ text: FOOTER_TEXT })
-        .setTimestamp();
-      const openRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('application_open').setLabel('Open Sollicitatieformulier').setEmoji('📝').setStyle(ButtonStyle.Primary)
-      );
-      await ticketChannel.send({ content: `<@${interaction.user.id}> <@&${TICKET_SUPPORT_ROLE_ID}>`, embeds: [embed, startEmbed], components: [openRow, closeRow] });
+      // Start het meerstaps-formulier
+      activeApplications.set(ticketChannel.id, { 
+        part1: false, part2: false, part3: false, part4: false, part5: false, 
+        answers: {} 
+      });
+      
+      const startEmbed = buildApplicationStartEmbed();
+      const appButtons = buildApplicationButtons(ticketChannel.id);
+      
+      await ticketChannel.send({ 
+        content: `<@${interaction.user.id}> <@&${TICKET_SUPPORT_ROLE_ID}>`, 
+        embeds: [embed, startEmbed], 
+        components: [appButtons, closeRow] 
+      });
     } else {
       await ticketChannel.send({ content: `<@${interaction.user.id}> <@&${TICKET_SUPPORT_ROLE_ID}>`, embeds: [embed], components: [closeRow] });
     }
@@ -968,26 +1079,61 @@ async function handleTicketCategorySelect(interaction) {
   }
 }
 
-// ===== FIX: Toon de modal DIRECT, zonder enige check of await =====
-async function handleApplicationOpen(interaction) {
+async function handleApplicationPartOpen(interaction, partKey) {
   try {
-    const modal = buildApplicationModal();
+    const modal = buildApplicationModal(partKey);
     await interaction.showModal(modal);
   } catch (error) {
-    console.error('❌ ShowModal error details:', error);
+    console.error(`❌ ShowModal error (${partKey}):`, error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: `❌ Kon het formulier niet openen: ${error.message}`, ephemeral: true }).catch(console.error);
+      await interaction.reply({ content: `❌ Kon deel niet openen: ${error.message}`, ephemeral: true }).catch(console.error);
     }
   }
 }
 
-async function handleApplicationModal(interaction) {
-  await interaction.deferReply();
-  const answers = {};
-  for (const q of APPLICATION_QUESTIONS) answers[q.id] = interaction.fields.getTextInputValue(q.id);
-  const embed = buildApplicationEmbed(interaction.user.id, answers);
-  await interaction.channel.send({ content: `<@&${TICKET_SUPPORT_ROLE_ID}> Nieuwe sollicitatie ingevuld!`, embeds: [embed] });
-  await interaction.editReply({ content: '✅ Sollicitatie verzonden!' });
+async function handleApplicationModalSubmit(interaction, partKey) {
+  await interaction.deferReply({ ephemeral: true });
+  
+  const channelId = interaction.channelId;
+  const data = activeApplications.get(channelId);
+  
+  if (!data) {
+    return interaction.editReply({ content: '❌ Sollicitatie data niet gevonden. Probeer opnieuw.' });
+  }
+
+  const part = APPLICATION_PARTS[partKey];
+  const answers = data.answers;
+
+  // Sla antwoorden op voor dit deel
+  if (!answers[partKey]) answers[partKey] = {};
+  for (const q of part.questions) {
+    answers[partKey][q.id] = interaction.fields.getTextInputValue(q.id);
+  }
+
+  // Markeer dit deel als ingevuld
+  data[partKey] = true;
+  activeApplications.set(channelId, data);
+
+  // Update de knoppen in het kanaal
+  try {
+    const messages = await interaction.channel.messages.fetch({ limit: 20 });
+    const botMessage = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
+    if (botMessage) {
+      await botMessage.edit({ components: [buildApplicationButtons(channelId), new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('ticket_close').setLabel('Sluiten').setEmoji('🔒').setStyle(ButtonStyle.Danger))] });
+    }
+  } catch (e) { console.error('Failed to update buttons:', e); }
+
+  await interaction.editReply({ content: `✅ **${part.title}** opgeslagen!` });
+
+  // Check of alles is ingevuld
+  if (data.part1 && data.part2 && data.part3 && data.part4 && data.part5) {
+    // Verstuur het definitieve embed naar de staff
+    const finalEmbed = buildFinalApplicationEmbed(data.userId || interaction.user.id, answers);
+    await interaction.channel.send({ 
+      content: `<@&${TICKET_SUPPORT_ROLE_ID}> 📢 **Een nieuwe sollicitatie is volledig ingevuld!**`, 
+      embeds: [finalEmbed] 
+    });
+  }
 }
 
 async function handleTicketClose(interaction) {
@@ -1114,24 +1260,29 @@ client.on("guildMemberRemove", (member) => {
 });
 
 client.on("interactionCreate", async (interaction) => {
-  // BELANGRIJK: Buttons worden EERST afgehandeld (vóór commands) om timeouts te voorkomen
+  // Buttons afhandelen
   if (interaction.isButton()) {
-    if (interaction.customId === 'application_open') {
-      return await handleApplicationOpen(interaction);
+    if (interaction.customId.startsWith('app_part')) {
+      const partKey = interaction.customId.split('_')[1]; // part1, part2, etc.
+      return await handleApplicationPartOpen(interaction, partKey);
     }
     if (interaction.customId === 'ticket_close') {
       return await handleTicketClose(interaction);
     }
   }
 
+  // Select menu afhandelen
   if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_category_select') {
     return await handleTicketCategorySelect(interaction);
   }
 
-  if (interaction.isModalSubmit() && interaction.customId === 'application_modal') {
-    return await handleApplicationModal(interaction);
+  // Modals afhandelen (app_modal_partX)
+  if (interaction.isModalSubmit() && interaction.customId.startsWith('app_modal_')) {
+    const partKey = interaction.customId.replace('app_modal_', ''); // part1, part2, etc.
+    return await handleApplicationModalSubmit(interaction, partKey);
   }
 
+  // Slash commands afhandelen
   if (interaction.isChatInputCommand()) {
     const name = interaction.commandName;
     if (name === "refresh") await handleRefresh(interaction);
