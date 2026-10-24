@@ -65,51 +65,44 @@ const TICKET_CATEGORIES = {
   },
 };
 
-// ===== SOLLICITATIE FORMULIER DEFINITIE (5 KOPJES) =====
+// ===== EXACTE SOLLICITATIE VRAGEN (4 KOPJES) =====
 const APPLICATION_PARTS = {
   part1: {
-    title: "1/5: Persoonlijke Gegevens",
+    title: "01 — Persoonlijke gegevens",
     emoji: "👤",
     questions: [
-      { id: "naam", label: "Naam", placeholder: "Je volledige naam", style: TextInputStyle.Short, max: 100 },
-      { id: "leeftijd", label: "Leeftijd", placeholder: "Bijv. 17", style: TextInputStyle.Short, max: 10 },
-      { id: "discord", label: "Discord tag", placeholder: "username#0000 of @username", style: TextInputStyle.Short, max: 100 },
-      { id: "ic_naam", label: "IC-naam", placeholder: "Je in-game naam", style: TextInputStyle.Short, max: 100 },
-      { id: "ic_leeftijd", label: "IC-leeftijd", placeholder: "Bijv. 24", style: TextInputStyle.Short, max: 10 }
+      { id: "naam", label: "Naam", placeholder: "Vul je naam in", style: TextInputStyle.Short, max: 100 },
+      { id: "leeftijd", label: "Leeftijd", placeholder: "Vul je leeftijd in", style: TextInputStyle.Short, max: 10 },
+      { id: "discord", label: "Discord", placeholder: "Vul je Discord tag in", style: TextInputStyle.Short, max: 100 },
+      { id: "ic_naam", label: "IC-naam", placeholder: "Vul je IC-naam in", style: TextInputStyle.Short, max: 100 },
+      { id: "ic_leeftijd", label: "IC-leeftijd", placeholder: "Vul je IC-leeftijd in", style: TextInputStyle.Short, max: 10 }
     ]
   },
   part2: {
-    title: "2/5: Ervaring",
+    title: "02 — Ervaring",
     emoji: "🎮",
     questions: [
-      { id: "rp_ervaring", label: "Ervaring met Serious RP", placeholder: "Vertel kort...", style: TextInputStyle.Paragraph, max: 500 },
-      { id: "gang_ervaring", label: "Eerdere gangervaring", placeholder: "Vertel kort...", style: TextInputStyle.Paragraph, max: 500 },
-      { id: "activiteit", label: "Activiteit per dag (uren)", placeholder: "Bijv. 4 uur", style: TextInputStyle.Short, max: 50 }
+      { id: "rp_ervaring", label: "Ervaring met Serious RP", placeholder: "Vertel over je ervaring", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "gang_ervaring", label: "Eerdere gangervaring", placeholder: "Vertel over je ervaring", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "activiteit", label: "Activiteit per dag", placeholder: "Bijv. 4 uur", style: TextInputStyle.Short, max: 50 }
     ]
   },
   part3: {
-    title: "3/5: Character",
+    title: "03 — Character",
     emoji: "💼",
     questions: [
-      { id: "waarde", label: "Totale waarde character", placeholder: "Bijv. €500.000", style: TextInputStyle.Short, max: 50 },
-      { id: "waarom", label: "Waarom wil je bij Kozlov?", placeholder: "Je motivatie...", style: TextInputStyle.Paragraph, max: 500 },
-      { id: "toevoegen", label: "Wat kun jij toevoegen?", placeholder: "Je skills...", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "waarde", label: "Totale waarde van je character", placeholder: "Bijv. €500.000", style: TextInputStyle.Short, max: 50 },
+      { id: "waarom", label: "Waarom wil je bij Kozlov?", placeholder: "Leg uit...", style: TextInputStyle.Paragraph, max: 500 },
+      { id: "toevoegen", label: "Wat kun jij toevoegen aan Kozlov?", placeholder: "Leg uit...", style: TextInputStyle.Paragraph, max: 500 },
       { id: "waarom_jou", label: "Waarom moeten wij jou aannemen?", placeholder: "Overtuig ons...", style: TextInputStyle.Paragraph, max: 500 }
     ]
   },
   part4: {
-    title: "4/5: Akkoord",
+    title: "04 — Akkoord",
     emoji: "📜",
     questions: [
-      { id: "serverregels", label: "Bekend met serverregels? (Ja/Nee)", placeholder: "Ja of Nee", style: TextInputStyle.Short, max: 10 },
-      { id: "regels_hiërarchie", label: "Akkoord met regels/hiërarchie?", placeholder: "Ja of Nee", style: TextInputStyle.Short, max: 10 }
-    ]
-  },
-  part5: {
-    title: "5/5: Overig",
-    emoji: "💬",
-    questions: [
-      { id: "extra", label: "Is er nog iets dat we moeten weten?", placeholder: "Optioneel...", style: TextInputStyle.Paragraph, max: 500, required: false }
+      { id: "serverregels", label: "Ben je bekend met de serverregels?", placeholder: "Ja of Nee", style: TextInputStyle.Short, max: 10 },
+      { id: "regels_hiërarchie", label: "Bereid aan regels/hiërarchie te houden?", placeholder: "Ja of Nee", style: TextInputStyle.Short, max: 10 }
     ]
   }
 };
@@ -629,6 +622,8 @@ async function closeTicket(channel, closerId) {
     const { html, messageCount } = await makeTranscript(channel);
     const buffer = Buffer.from(html, 'utf-8');
     const attachment = new AttachmentBuilder(buffer, { name: `transcript-${channel.name}.html` });
+    
+    // Verstuur naar transcript kanaal
     const transcriptChannel = await client.channels.fetch(TICKET_TRANSCRIPT_CHANNEL_ID);
     const cat = TICKET_CATEGORIES[ticket.category];
     const embed = new EmbedBuilder()
@@ -644,7 +639,18 @@ async function closeTicket(channel, closerId) {
       .setFooter({ text: FOOTER_TEXT })
       .setTimestamp();
     await transcriptChannel.send({ embeds: [embed], files: [attachment] });
+
+    // Verstuur DM naar klant
+    try {
+      const user = await client.users.fetch(ticket.userId);
+      await user.send({ 
+        content: `🔒 Je ticket **#${channel.name}** is gesloten. Hieronder vind je het transcript.`, 
+        files: [attachment] 
+      });
+    } catch (e) { console.log("Kon geen DM sturen naar user."); }
+
   } catch (e) { console.error('Transcript error:', e.message); }
+  
   activeTickets.delete(channel.id);
   activeApplications.delete(channel.id);
   setTimeout(async () => { try { await channel.delete('Ticket gesloten'); } catch (e) {} }, 5000);
@@ -693,51 +699,42 @@ function buildApplicationStartEmbed() {
     .setColor(0xf39c12)
     .setDescription(
       'Welkom bij je sollicitatie voor **Kozlov**!\n\n' +
-      'We hebben je sollicitatie opgesplitst in **5 delen** (vanwege Discord-limieten).\n' +
-      'Klik op de knoppen hieronder om elk deel in te vullen.\n\n' +
+      'Vul de 4 kopjes in door op de knoppen hieronder te klikken.\n\n' +
       '👤 **Deel 1** — Persoonlijke gegevens\n' +
       '🎮 **Deel 2** — Ervaring\n' +
       '💼 **Deel 3** — Character\n' +
-      '📜 **Deel 4** — Akkoord\n' +
-      '💬 **Deel 5** — Overig\n\n' +
-      'Zodra je alle 5 de delen hebt ingevuld, wordt je sollicitatie automatisch naar de staff gestuurd!'
+      '📜 **Deel 4** — Akkoord\n\n' +
+      'Zodra je alle 4 de delen hebt ingevuld, wordt je sollicitatie automatisch naar de staff gestuurd!'
     )
     .setFooter({ text: FOOTER_TEXT })
     .setTimestamp();
 }
 
 function buildApplicationButtons(channelId) {
-  const data = activeApplications.get(channelId) || { part1: false, part2: false, part3: false, part4: false, part5: false };
+  const data = activeApplications.get(channelId) || { part1: false, part2: false, part3: false, part4: false };
   
-  const row1 = new ActionRowBuilder().addComponents(
+  return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`app_part1_${channelId}`)
-      .setLabel('Deel 1')
+      .setLabel('Deel 1: Gegevens')
       .setEmoji(data.part1 ? '✅' : '👤')
       .setStyle(data.part1 ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`app_part2_${channelId}`)
-      .setLabel('Deel 2')
+      .setLabel('Deel 2: Ervaring')
       .setEmoji(data.part2 ? '✅' : '🎮')
       .setStyle(data.part2 ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`app_part3_${channelId}`)
-      .setLabel('Deel 3')
+      .setLabel('Deel 3: Character')
       .setEmoji(data.part3 ? '✅' : '💼')
       .setStyle(data.part3 ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`app_part4_${channelId}`)
-      .setLabel('Deel 4')
+      .setLabel('Deel 4: Akkoord')
       .setEmoji(data.part4 ? '✅' : '📜')
-      .setStyle(data.part4 ? ButtonStyle.Success : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`app_part5_${channelId}`)
-      .setLabel('Deel 5')
-      .setEmoji(data.part5 ? '✅' : '💬')
-      .setStyle(data.part5 ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setStyle(data.part4 ? ButtonStyle.Success : ButtonStyle.Secondary)
   );
-  
-  return row1;
 }
 
 function buildApplicationModal(partKey) {
@@ -750,7 +747,7 @@ function buildApplicationModal(partKey) {
       .setLabel(q.label.slice(0, 45))
       .setPlaceholder(q.placeholder.slice(0, 100))
       .setStyle(q.style)
-      .setRequired(q.required !== false)
+      .setRequired(true)
       .setMaxLength(q.max);
     modal.addComponents(new ActionRowBuilder().addComponents(input));
   }
@@ -762,21 +759,36 @@ function buildFinalApplicationEmbed(userId, answers) {
   const p2 = answers.part2 || {};
   const p3 = answers.part3 || {};
   const p4 = answers.part4 || {};
-  const p5 = answers.part5 || {};
 
   return new EmbedBuilder()
     .setTitle('📝 Sollicitatie Ingevuld')
     .setColor(0xf39c12)
     .setDescription(`<@${userId}> heeft de sollicitatie volledig ingevuld.`)
     .addFields(
-      { name: '👤 Deel 1: Persoonlijke Gegevens', value: `**Naam:** ${p1.naam || '-'}\n**Leeftijd:** ${p1.leeftijd || '-'}\n**Discord:** ${p1.discord || '-'}\n**IC Naam:** ${p1.ic_naam || '-'}\n**IC Leeftijd:** ${p1.ic_leeftijd || '-'}`, inline: false },
-      { name: '🎮 Deel 2: Ervaring', value: `**Serious RP:** ${p2.rp_ervaring || '-'}\n**Gang Ervaring:** ${p2.gang_ervaring || '-'}\n**Activiteit:** ${p2.activiteit || '-'}`, inline: false },
-      { name: '💼 Deel 3: Character', value: `**Waarde:** ${p3.waarde || '-'}\n**Waarom Kozlov:** ${p3.waarom || '-'}\n**Toevoeging:** ${p3.toevoegen || '-'}\n**Waarom aannemen:** ${p3.waarom_jou || '-'}`, inline: false },
-      { name: '📜 Deel 4: Akkoord', value: `**Bekend met regels:** ${p4.serverregels || '-'}\n**Akkoord hiërarchie:** ${p4.regels_hiërarchie || '-'}`, inline: false },
-      { name: '💬 Deel 5: Overig', value: `${p5.extra || 'Niets opgegeven'}`, inline: false }
+      { name: '👤 01 — Persoonlijke gegevens', value: `**Naam:** ${p1.naam || '-'}\n**Leeftijd:** ${p1.leeftijd || '-'}\n**Discord:** ${p1.discord || '-'}\n**IC Naam:** ${p1.ic_naam || '-'}\n**IC Leeftijd:** ${p1.ic_leeftijd || '-'}`, inline: false },
+      { name: '🎮 02 — Ervaring', value: `**Serious RP:** ${p2.rp_ervaring || '-'}\n**Gang Ervaring:** ${p2.gang_ervaring || '-'}\n**Activiteit:** ${p2.activiteit || '-'}`, inline: false },
+      { name: '💼 03 — Character', value: `**Waarde:** ${p3.waarde || '-'}\n**Waarom Kozlov:** ${p3.waarom || '-'}\n**Toevoeging:** ${p3.toevoegen || '-'}\n**Waarom aannemen:** ${p3.waarom_jou || '-'}`, inline: false },
+      { name: '📜 04 — Akkoord', value: `**Bekend met regels:** ${p4.serverregels || '-'}\n**Akkoord hiërarchie:** ${p4.regels_hiërarchie || '-'}`, inline: false }
     )
     .setFooter({ text: FOOTER_TEXT })
     .setTimestamp();
+}
+
+function buildAdminReviewButtons(channelId, userId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`app_accept_${userId}`).setLabel('Aannemen').setEmoji('✅').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`app_reject_${userId}`).setLabel('Afwijzen').setEmoji('❌').setStyle(ButtonStyle.Danger)
+  );
+}
+
+function buildRankSelectMenu(userId) {
+  const options = ranks.map(r => ({ label: r.name, value: r.roleId }));
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`app_rank_select_${userId}`)
+      .setPlaceholder('Kies een rang voor de gebruiker...')
+      .addOptions(options)
+  );
 }
 
 // ===== Command registration =====
@@ -900,6 +912,12 @@ async function handleAangenomen(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendAangenomenEmbed(interaction.guild, targetMember, rank.name, reason);
     await safeUpdateList();
+    
+    // DM sturen
+    try {
+      await targetUser.send({ content: `✅ Gefeliciteerd! Je bent aangenomen bij **Kozlov** met de rang **${rank.name}**.\nReden: ${reason}` });
+    } catch (err) {}
+
     await interaction.deleteReply().catch(() => null);
   } catch (error) { if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral }); }
 }
@@ -915,6 +933,12 @@ async function handleOntslagen(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await sendOntslagenEmbed(targetMember, reason);
     await safeUpdateList();
+    
+    // DM sturen
+    try {
+      await targetUser.send({ content: `❌ Je bent ontslagen bij **Kozlov**.\nReden: ${reason}` });
+    } catch (err) {}
+
     await interaction.deleteReply().catch(() => null);
   } catch (error) { if (!interaction.replied) await interaction.reply({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral }); }
 }
@@ -1056,7 +1080,7 @@ async function handleTicketCategorySelect(interaction) {
     if (cat.isApplication) {
       // Start het meerstaps-formulier
       activeApplications.set(ticketChannel.id, { 
-        part1: false, part2: false, part3: false, part4: false, part5: false, 
+        part1: false, part2: false, part3: false, part4: false, 
         answers: {} 
       });
       
@@ -1112,12 +1136,13 @@ async function handleApplicationModalSubmit(interaction, partKey) {
 
   // Markeer dit deel als ingevuld
   data[partKey] = true;
+  data.userId = interaction.user.id;
   activeApplications.set(channelId, data);
 
   // Update de knoppen in het kanaal
   try {
     const messages = await interaction.channel.messages.fetch({ limit: 20 });
-    const botMessage = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
+    const botMessage = messages.find(m => m.author.id === client.user.id && m.components.length > 0 && m.components[0].components[0].customId?.startsWith('app_part'));
     if (botMessage) {
       await botMessage.edit({ components: [buildApplicationButtons(channelId), new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('ticket_close').setLabel('Sluiten').setEmoji('🔒').setStyle(ButtonStyle.Danger))] });
     }
@@ -1126,13 +1151,96 @@ async function handleApplicationModalSubmit(interaction, partKey) {
   await interaction.editReply({ content: `✅ **${part.title}** opgeslagen!` });
 
   // Check of alles is ingevuld
-  if (data.part1 && data.part2 && data.part3 && data.part4 && data.part5) {
+  if (data.part1 && data.part2 && data.part3 && data.part4) {
     // Verstuur het definitieve embed naar de staff
-    const finalEmbed = buildFinalApplicationEmbed(data.userId || interaction.user.id, answers);
+    const finalEmbed = buildFinalApplicationEmbed(data.userId, answers);
+    const adminButtons = buildAdminReviewButtons(channelId, data.userId);
+    
     await interaction.channel.send({ 
       content: `<@&${TICKET_SUPPORT_ROLE_ID}> 📢 **Een nieuwe sollicitatie is volledig ingevuld!**`, 
-      embeds: [finalEmbed] 
+      embeds: [finalEmbed],
+      components: [adminButtons]
     });
+    
+    // Markeer als klaar voor review
+    data.completed = true;
+    activeApplications.set(channelId, data);
+  }
+}
+
+async function handleAppAccept(interaction, userId) {
+  if (!hasAdminRole(interaction.member)) return interaction.reply({ content: "❌ Je hebt niet de juiste rol!", ephemeral: true });
+  
+  await interaction.reply({ 
+    content: "Kies de rang voor deze gebruiker in het dropdown menu hieronder:", 
+    components: [buildRankSelectMenu(userId)],
+    ephemeral: true 
+  });
+}
+
+async function handleAppReject(interaction, userId) {
+  if (!hasAdminRole(interaction.member)) return interaction.reply({ content: "❌ Je hebt niet de juiste rol!", ephemeral: true });
+  
+  // Update het bericht om knoppen weg te halen
+  await interaction.update({ components: [] });
+  
+  const targetUser = await client.users.fetch(userId).catch(() => null);
+  
+  // Log naar ontslagen kanaal
+  if (targetUser) {
+    await sendOntslagenEmbed(targetUser, "Sollicitatie afgewezen");
+    
+    // DM sturen
+    try {
+      await targetUser.send({ content: `❌ Je sollicitatie bij **Kozlov** is helaas afgewezen.\nReden: Sollicitatie afgewezen` });
+    } catch (err) {}
+  }
+  
+  await interaction.channel.send({ content: `❌ Sollicitatie van <@${userId}> is afgewezen door <@${interaction.user.id}>.` });
+}
+
+async function handleAppRankSelect(interaction, userId) {
+  if (!hasAdminRole(interaction.member)) return interaction.reply({ content: "❌ Je hebt niet de juiste rol!", ephemeral: true });
+  
+  await interaction.deferUpdate();
+  const roleId = interaction.values[0];
+  const rank = ranks.find(r => r.roleId === roleId);
+  
+  if (!rank) return;
+
+  const reason = "Sollicitatie/Overstap wel goed gespeld dan";
+  const targetUser = await client.users.fetch(userId).catch(() => null);
+  const targetMember = await interaction.guild.members.fetch(userId).catch(() => null);
+
+  if (!targetUser || !targetMember) {
+    return interaction.followUp({ content: "❌ Gebruiker niet gevonden.", ephemeral: true });
+  }
+
+  try {
+    // Rollen aanpassen
+    await removeAllGangRoles(targetMember);
+    await targetMember.roles.add(interaction.guild.roles.cache.get(rank.roleId));
+    await targetMember.roles.add(interaction.guild.roles.cache.get(LID_ROLE_ID));
+    
+    // Log naar aangenomen kanaal
+    await sendAangenomenEmbed(interaction.guild, targetMember, rank.name, reason);
+    
+    // Update ledenlijst
+    await safeUpdateList();
+
+    // Stuur DM
+    try {
+      await targetUser.send({ 
+        content: `✅ Gefeliciteerd! Je bent aangenomen bij **Kozlov** met de rang **${rank.name}**.\nReden: ${reason}` 
+      });
+    } catch (err) {}
+
+    // Update originele bericht
+    await interaction.editReply({ content: `✅ <@${userId}> is aangenomen als **${rank.name}**!`, components: [] });
+    await interaction.channel.send({ content: `✅ <@${userId}> is aangenomen als **${rank.name}** door <@${interaction.user.id}>.` });
+
+  } catch (error) {
+    await interaction.followUp({ content: `❌ Fout: ${error.message}`, ephemeral: true });
   }
 }
 
@@ -1142,7 +1250,7 @@ async function handleTicketClose(interaction) {
   const isOwner = ticket.userId === interaction.user.id;
   const isStaff = interaction.member.roles.cache.has(TICKET_SUPPORT_ROLE_ID);
   if (!isOwner && !isStaff) return interaction.reply({ content: 'Je mag dit ticket niet sluiten.', ephemeral: true });
-  await interaction.reply({ content: '🔒 Ticket wordt gesloten...' });
+  await interaction.reply({ content: '🔒 Ticket wordt gesloten en transcript wordt verstuurd...' });
   await closeTicket(interaction.channel, interaction.user.id);
 }
 
@@ -1185,7 +1293,7 @@ async function handleClose(interaction) {
   if (!interaction.member.roles.cache.has(TICKET_SUPPORT_ROLE_ID)) return interaction.reply({ content: '❌ Geen permissie.', ephemeral: true });
   const ticket = activeTickets.get(interaction.channelId);
   if (!ticket) return interaction.reply({ content: 'Geen actief ticket.', ephemeral: true });
-  await interaction.reply({ content: '🔒 Ticket wordt gesloten...' });
+  await interaction.reply({ content: '🔒 Ticket wordt gesloten en transcript wordt verstuurd...' });
   await closeTicket(interaction.channel, interaction.user.id);
 }
 
@@ -1263,22 +1371,36 @@ client.on("interactionCreate", async (interaction) => {
   // Buttons afhandelen
   if (interaction.isButton()) {
     if (interaction.customId.startsWith('app_part')) {
-      const partKey = interaction.customId.split('_')[1]; // part1, part2, etc.
+      const partKey = interaction.customId.split('_')[1];
       return await handleApplicationPartOpen(interaction, partKey);
     }
     if (interaction.customId === 'ticket_close') {
       return await handleTicketClose(interaction);
     }
+    if (interaction.customId.startsWith('app_accept_')) {
+      const userId = interaction.customId.split('_')[2];
+      return await handleAppAccept(interaction, userId);
+    }
+    if (interaction.customId.startsWith('app_reject_')) {
+      const userId = interaction.customId.split('_')[2];
+      return await handleAppReject(interaction, userId);
+    }
   }
 
   // Select menu afhandelen
-  if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_category_select') {
-    return await handleTicketCategorySelect(interaction);
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === 'ticket_category_select') {
+      return await handleTicketCategorySelect(interaction);
+    }
+    if (interaction.customId.startsWith('app_rank_select_')) {
+      const userId = interaction.customId.split('_')[3];
+      return await handleAppRankSelect(interaction, userId);
+    }
   }
 
   // Modals afhandelen (app_modal_partX)
   if (interaction.isModalSubmit() && interaction.customId.startsWith('app_modal_')) {
-    const partKey = interaction.customId.replace('app_modal_', ''); // part1, part2, etc.
+    const partKey = interaction.customId.replace('app_modal_', ''); 
     return await handleApplicationModalSubmit(interaction, partKey);
   }
 
