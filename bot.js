@@ -65,13 +65,14 @@ const TICKET_CATEGORIES = {
   },
 };
 
+// Let op: Discord heeft een harde limiet van 45 tekens voor labels
 const APPLICATION_QUESTIONS = [
   { id: "naam", label: "Wat is je naam?", placeholder: "Je volledige naam", style: TextInputStyle.Short, max: 100 },
   { id: "leeftijd", label: "Hoe oud ben je?", placeholder: "Bijv. 17", style: TextInputStyle.Short, max: 10 },
   { id: "discord", label: "Wat is je Discord tag?", placeholder: "username#0000 of @username", style: TextInputStyle.Short, max: 100 },
-  { id: "ervaring", label: "Heb je ervaring met dit soort werk?", placeholder: "Vertel kort over je ervaring", style: TextInputStyle.Paragraph, max: 500 },
+  { id: "ervaring", label: "Heb je ervaring met dit werk?", placeholder: "Vertel kort over je ervaring", style: TextInputStyle.Paragraph, max: 500 },
   { id: "motivatie", label: "Waarom wil je bij ons team?", placeholder: "Je motivatie", style: TextInputStyle.Paragraph, max: 500 },
-  { id: "beschikbaarheid", label: "Hoeveel uur per week ben je beschikbaar?", placeholder: "Bijv. 20 uur", style: TextInputStyle.Short, max: 50 },
+  { id: "beschikbaarheid", label: "Hoeveel uur per week beschikbaar?", placeholder: "Bijv. 20 uur", style: TextInputStyle.Short, max: 50 },
 ];
 
 const SUPPORT_TICKET_PERMS = [
@@ -648,8 +649,12 @@ function buildApplicationModal() {
   const modal = new ModalBuilder().setCustomId('application_modal').setTitle('Sollicitatie Formulier');
   for (const q of APPLICATION_QUESTIONS) {
     const input = new TextInputBuilder()
-      .setCustomId(q.id).setLabel(q.label).setPlaceholder(q.placeholder)
-      .setStyle(q.style).setRequired(true).setMaxLength(q.max);
+      .setCustomId(q.id)
+      .setLabel(q.label.slice(0, 45))
+      .setPlaceholder(q.placeholder.slice(0, 100))
+      .setStyle(q.style)
+      .setRequired(true)
+      .setMaxLength(q.max);
     modal.addComponents(new ActionRowBuilder().addComponents(input));
   }
   return modal;
@@ -967,11 +972,12 @@ async function handleTicketCategorySelect(interaction) {
 // ===== FIX: Toon de modal DIRECT, zonder enige check of await =====
 async function handleApplicationOpen(interaction) {
   try {
-    await interaction.showModal(buildApplicationModal());
+    const modal = buildApplicationModal();
+    await interaction.showModal(modal);
   } catch (error) {
-    console.error('ShowModal error:', error);
+    console.error('❌ ShowModal error details:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❌ Kon het formulier niet openen.', ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: `❌ Kon het formulier niet openen: ${error.message}`, ephemeral: true }).catch(console.error);
     }
   }
 }
