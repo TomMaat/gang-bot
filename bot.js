@@ -238,6 +238,40 @@ const client = new Client({
 let messageId = null;
 const activeApplications = new Map(); // Slaat antwoorden op tijdens het invullen
 
+// ===== STATUS SYSTEEM =====
+let statusToggle = false;
+
+async function updateBotStatus() {
+  try {
+    const guild = client.guilds.cache.first();
+    if (!guild) return;
+
+    if (statusToggle) {
+      // Toon totaal aantal Discord members
+      client.user.setActivity(`${guild.memberCount} leden in de server`, { type: 3 }); // Type 3 = Watching
+    } else {
+      // Bereken unieke gang leden
+      let uniqueMembers = new Set();
+      for (const rank of ranks) {
+        const role = guild.roles.cache.get(rank.roleId);
+        if (role) {
+          role.members.forEach(m => uniqueMembers.add(m.id));
+        }
+      }
+      client.user.setActivity(`${uniqueMembers.size} gang leden`, { type: 3 }); 
+    }
+    statusToggle = !statusToggle;
+  } catch (error) {
+    console.error("Failed to update status:", error);
+  }
+}
+
+function startStatusInterval() {
+  updateBotStatus();
+  setInterval(updateBotStatus, 10000); // Wisselt elke 10 seconden
+}
+
+// ===== OVERIGE FUNCTIES =====
 async function buildEmbed() {
   const guild = client.guilds.cache.first();
   if (!guild) return null;
@@ -1343,6 +1377,9 @@ client.once("ready", async () => {
   await registerCommands();
   await safeUpdateList();
   await setupTicketPanel();
+  
+  // Start de status interval
+  startStatusInterval();
 });
 
 client.on("guildMemberAdd", async (member) => { await sendWelcomeMessage(member); });
