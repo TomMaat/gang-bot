@@ -248,7 +248,7 @@ async function updateBotStatus() {
 
     if (statusToggle) {
       // Toon totaal aantal Discord members
-      client.user.setActivity(`${guild.memberCount} leden in de server`, { type: 3 }); // Type 3 = Watching
+      client.user.setActivity(`${guild.memberCount} Discord Members`, { type: 3 }); 
     } else {
       // Bereken unieke gang leden
       let uniqueMembers = new Set();
@@ -258,7 +258,7 @@ async function updateBotStatus() {
           role.members.forEach(m => uniqueMembers.add(m.id));
         }
       }
-      client.user.setActivity(`${uniqueMembers.size} gang leden`, { type: 3 }); 
+      client.user.setActivity(`${uniqueMembers.size} Gang Members`, { type: 3 }); 
     }
     statusToggle = !statusToggle;
   } catch (error) {
