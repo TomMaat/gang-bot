@@ -275,7 +275,7 @@ async function buildEmbed() {
     else body += `➤ Geen leden\n`;
     body += `\n`;
   }
-  const description = `**Totaal: ${uniqueMembers.size} leden**\n\n${body}`;
+  const description = `**Totale: ${uniqueMembers.size} leden**\n\n${body}`;
   return new EmbedBuilder().setTitle("🏴 Kozlov Ledenlijst").setColor(0x2b2b2b).setDescription(description.slice(0, 4096)).setFooter({ text: FOOTER_TEXT }).setTimestamp();
 }
 
