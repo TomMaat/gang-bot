@@ -69,7 +69,7 @@ const TICKET_CATEGORIES = {
 // ===== EXACTE SOLLICITATIE VRAGEN (4 KOPJES) =====
 const APPLICATION_PARTS = {
   part1: {
-    title: "01 — Persoonlijke gegevens",
+    title: "Persoonlijke gegevens",
     emoji: "👤",
     questions: [
       { id: "naam", label: "Naam", placeholder: "Vul je naam in", style: TextInputStyle.Short, max: 100 },
@@ -80,7 +80,7 @@ const APPLICATION_PARTS = {
     ]
   },
   part2: {
-    title: "02 — Ervaring",
+    title: "Ervaring",
     emoji: "🎮",
     questions: [
       { id: "rp_ervaring", label: "Ervaring met Serious RP", placeholder: "Vertel over je ervaring", style: TextInputStyle.Paragraph, max: 500 },
@@ -89,7 +89,7 @@ const APPLICATION_PARTS = {
     ]
   },
   part3: {
-    title: "03 — Character",
+    title: "Character",
     emoji: "💼",
     questions: [
       { id: "waarde", label: "Totale waarde van je character", placeholder: "Bijv. €500.000", style: TextInputStyle.Short, max: 50 },
@@ -99,7 +99,7 @@ const APPLICATION_PARTS = {
     ]
   },
   part4: {
-    title: "04 — Akkoord",
+    title: "Akkoord",
     emoji: "📜",
     questions: [
       { id: "serverregels", label: "Ben je bekend met de serverregels?", placeholder: "Ja of Nee", style: TextInputStyle.Short, max: 10 },
