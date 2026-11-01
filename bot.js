@@ -1,4 +1,4 @@
-Tmport http from 'http';
+import http from 'http';
 import {
   Client,
   EmbedBuilder,
